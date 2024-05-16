@@ -22,6 +22,21 @@ import json
 import datetime
 import os 
 
+
+class WeightedMSELoss(nn.Module):
+    def __init__(self):
+        super(WeightedMSELoss, self).__init__()
+
+    def forward(self, predictions: torch.tensor, targets: torch.tensor):
+        # weigh each frequency bin by its index. the 0th bin should receive full weight, 
+        # and each successive bin should receive .5 the weight of the previous bin.
+        num_feats = predictions.shape[1]
+        powvec = torch.arange(0, -1, -(1/num_feats), device=predictions.device)
+        weights = torch.pow(2.0, 1.0*powvec)
+        weights = (weights / torch.sum(weights)) * num_feats
+
+        return torch.mean(weights * (predictions - targets) ** 2.0)
+
 def main():
     params = json.load(open('params.json'))
 
@@ -40,12 +55,19 @@ def main():
     print(f'Using device: {device}')
 
     train_loader: torch.utils.data.dataloader = torch.utils.data.DataLoader(list(zip(X_train, Y_train)), batch_size=params['batch_size'], shuffle=True)
+    validation_loader: torch.utils.data.dataloader = torch.utils.data.DataLoader(list(zip(X_test, Y_test)), batch_size=params['batch_size'], shuffle=True)
 
     net = network.Net(X_train.shape[1], Y_train.shape[1]).to(device)
-    criterion = nn.MSELoss()
+    criterion = WeightedMSELoss()
     optimizer = optim.Adam(net.parameters(), lr=params['learning_rate'])
 
-    losses = network.train(net, train_loader, criterion, optimizer, device, params['num_epochs'])
+    training_losses, validation_losses = network.train(net, 
+                                                       train_loader, 
+                                                       criterion, 
+                                                       optimizer, 
+                                                       device, 
+                                                       params['num_epochs'], 
+                                                       validation_loader=validation_loader)
 
     # name model file with date and time
     time = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
@@ -59,8 +81,9 @@ def main():
     print(f'Model saved as {model_fn}')
 
     plt.figure()
-    plt.plot(losses)
-    plt.ylim([0, np.max(losses)+0.1])
+    plt.plot(training_losses, label='Training Loss')
+    plt.plot(validation_losses, label='Validation Loss')
+    plt.ylim([0, np.max(training_losses)+0.1])
     plt.xlabel('Epoch')
     plt.ylabel('Loss')
     plt.title('Training Loss')

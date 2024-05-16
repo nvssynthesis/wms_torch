@@ -15,19 +15,19 @@ def predict(model, input):
         predicted = model(input)
     return predicted
 
-def write_audio(waveform, out_fs: int, base_name: str, dir: str = 'written_audio'):
+def write_audio(waveform, out_fs: int,  base_name: str, num_reps=10, dir: str = 'written_audio'):
     target_wave: np.ndarray = waveform.numpy()
+    target_wave = np.tile(target_wave, num_reps)
     scaled = np.int16(target_wave / np.max(np.abs(target_wave)) * 32767)
 
     time = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-    target_fn = f'{base_name}_{time}.wav'
+    target_fn = f'{time}_{base_name}.wav'
     target_fn = os.path.join(dir, target_fn)
-    write(target_fn, 22050, scaled)
+    write(target_fn, out_fs, scaled)
 
 def main():
-    idx = 6
+    indices = [60, 61, 62, 63, 64, 65, 66, 67, 68, 69]
     device = torch.device('cpu')
-
     params = json.load(open('params.json'))
 
     _, _, X_test, Y_test = get_data(audio_files_path=params['audio_files_path'],
@@ -46,21 +46,22 @@ def main():
     state_dict = torch.load(last_network)
     network.load_state_dict(state_dict)
 
-    input, target = X_test[idx], Y_test[idx]
+    for idx in indices:
+        input, target = X_test[idx], Y_test[idx]
 
-    predicted = predict(network, input)
-    inv_pow = 1 / params['power']
-    target = target**inv_pow
-    predicted = predicted**inv_pow
+        predicted = predict(network, input)
+        inv_pow = 1 / params['power']
+        target = target**inv_pow
+        predicted = predicted**inv_pow
 
-    # use inverse fft to convert the predicted and target to waveforms
-    target_wave = torch.fft.ifft(make_conjugate_symmetric(torch.tensor(target, dtype=torch.complex64)))
-    predicted_wave = torch.fft.ifft(make_conjugate_symmetric(torch.tensor(predicted, dtype=torch.complex64)))
-    
-    plot_prediction(target, predicted, target_wave, predicted_wave)
+        # use inverse fft to convert the predicted and target to waveforms
+        target_wave = torch.fft.ifft(make_conjugate_symmetric(torch.tensor(target, dtype=torch.complex64)))
+        predicted_wave = torch.fft.ifft(make_conjugate_symmetric(torch.tensor(predicted, dtype=torch.complex64)))
+        
+        plot_prediction(target, predicted, target_wave, predicted_wave)
 
-    write_audio(target_wave, params['sample_rate'], 'target')
-    write_audio(predicted_wave, params['sample_rate'], 'predicted')
+        write_audio(target_wave, params['sample_rate'], 'target')
+        write_audio(predicted_wave, params['sample_rate'], 'predicted')
 
 if __name__ == '__main__':
     main()

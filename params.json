@@ -3,15 +3,15 @@
     "sample_rate": 22050,
     "n_fft": 1024,
     "window_size": 1024,
-    "hop_size": 160,
+    "hop_size": 100,
     "power": 0.6,
 
-    "n_mfcc": 8,
+    "n_mfcc": 6,
     "n_mel": 30,
     "f_low": 85,
     "f_high": 8000,
 
-    "batch_size": 32,
-    "learning_rate": 0.002,
-    "num_epochs": 500
+    "batch_size": 4096,
+    "learning_rate": 0.003,
+    "num_epochs": 1000
 }

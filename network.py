@@ -19,8 +19,8 @@ class Net(nn.Module):
         return y 
     
 
-def train_epoch(model, data_loader, loss_fn, optimizer, device) -> float:
-    for inputs, targets in data_loader:
+def train_epoch(model, train_loader, loss_fn, optimizer, device, validation_loader=None) -> float:
+    for inputs, targets in train_loader:
         inputs, targets = inputs.to(device), targets.to(device)
 
         # calculate the loss
@@ -31,16 +31,26 @@ def train_epoch(model, data_loader, loss_fn, optimizer, device) -> float:
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
-    print(f'Loss: {loss.item()}')
-    return loss.item()
+    
+    # get the validation loss
+    if validation_loader is not None:
+        model.eval()
+        with torch.no_grad():
+            for inputs, targets in validation_loader:
+                inputs, targets = inputs.to(device), targets.to(device)
+                predictions = model(inputs)
+                val_loss = loss_fn(predictions, targets)
 
-def train(model, data_loader, loss_fn, optimizer, device, num_epochs):
+    print(f'Loss: {loss.item()}')
+    return loss.item(), val_loss.item()
+
+def train(model, data_loader, loss_fn, optimizer, device, num_epochs, validation_loader=None):
     model.train()
-    losses = np.zeros(num_epochs)
+    training_losses = np.zeros(num_epochs)
+    validation_losses = np.zeros(num_epochs)
     for epoch in range(num_epochs):
         print(f'Epoch {epoch + 1}/{num_epochs}')
-        loss = train_epoch(model, data_loader, loss_fn, optimizer, device)
-        losses[epoch] = loss
+        training_losses[epoch], validation_losses[epoch] = train_epoch(model, data_loader, loss_fn, optimizer, device, validation_loader)
         print('-' * 10)
     print('Finished training')
-    return losses
+    return training_losses, validation_losses
