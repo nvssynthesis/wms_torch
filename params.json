@@ -9,5 +9,9 @@
     "n_mfcc": 8,
     "n_mel": 30,
     "f_low": 85,
-    "f_high": 8000
+    "f_high": 8000,
+
+    "batch_size": 32,
+    "learning_rate": 0.002,
+    "num_epochs": 500
 }

@@ -25,10 +25,6 @@ import os
 def main():
     params = json.load(open('params.json'))
 
-    BATCH_SIZE = 32
-    LEARNING_RATE = 0.002
-    EPOCHS = 1
-
     X_train, Y_train, X_test, Y_test = get_data(audio_files_path=params['audio_files_path'], 
                                                 sample_rate=params['sample_rate'], 
                                                 window_size=params['window_size'], 
@@ -43,13 +39,13 @@ def main():
     device = torch.device('cpu')
     print(f'Using device: {device}')
 
-    train_loader: torch.utils.data.dataloader = torch.utils.data.DataLoader(list(zip(X_train, Y_train)), batch_size=BATCH_SIZE)
+    train_loader: torch.utils.data.dataloader = torch.utils.data.DataLoader(list(zip(X_train, Y_train)), batch_size=params['batch_size'], shuffle=True)
 
     net = network.Net(X_train.shape[1], Y_train.shape[1]).to(device)
     criterion = nn.MSELoss()
-    optimizer = optim.Adam(net.parameters(), lr=LEARNING_RATE)
+    optimizer = optim.Adam(net.parameters(), lr=params['learning_rate'])
 
-    losses = network.train(net, train_loader, criterion, optimizer, device, EPOCHS)
+    losses = network.train(net, train_loader, criterion, optimizer, device, params['num_epochs'])
 
     # name model file with date and time
     time = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
