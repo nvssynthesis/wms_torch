@@ -6,6 +6,8 @@ import json
 import numpy as np 
 from scipy.io.wavfile import write
 from util import make_conjugate_symmetric
+import datetime
+import os 
 
 def predict(model, input):
     model.eval()
@@ -13,8 +15,17 @@ def predict(model, input):
         predicted = model(input)
     return predicted
 
+def write_audio(waveform, out_fs: int, base_name: str, dir: str = 'written_audio'):
+    target_wave: np.ndarray = waveform.numpy()
+    scaled = np.int16(target_wave / np.max(np.abs(target_wave)) * 32767)
+
+    time = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+    target_fn = f'{base_name}_{time}.wav'
+    target_fn = os.path.join(dir, target_fn)
+    write(target_fn, 22050, scaled)
+
 def main():
-    idx = 99
+    idx = 6
     device = torch.device('cpu')
 
     params = json.load(open('params.json'))
@@ -48,13 +59,8 @@ def main():
     
     plot_prediction(target, predicted, target_wave, predicted_wave)
 
-    # write the predicted audio to a file
-    target_wave: np.ndarray = target_wave.numpy()
-    predicted_wave = predicted_wave.numpy()
-    scaled = np.int16(target_wave / np.max(np.abs(target_wave)) * 32767)
-    write('./target.wav', 22050, scaled)
-    scaled = np.int16(predicted_wave / np.max(np.abs(predicted_wave)) * 32767)
-    write('./predicted.wav', 22050, scaled)
+    write_audio(target_wave, params['sample_rate'], 'target')
+    write_audio(predicted_wave, params['sample_rate'], 'predicted')
 
 if __name__ == '__main__':
     main()

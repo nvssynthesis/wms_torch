@@ -20,13 +20,14 @@ from get_data import get_data
 import numpy as np
 import json 
 import datetime
+import os 
 
 def main():
     params = json.load(open('params.json'))
 
     BATCH_SIZE = 32
     LEARNING_RATE = 0.002
-    EPOCHS = 500
+    EPOCHS = 1
 
     X_train, Y_train, X_test, Y_test = get_data(audio_files_path=params['audio_files_path'], 
                                                 sample_rate=params['sample_rate'], 
@@ -53,6 +54,8 @@ def main():
     # name model file with date and time
     time = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
     model_fn = f'model_{time}.pth'
+    # place in models folder
+    model_fn = os.path.join('./models', model_fn)
     last_network_tracker = json.load(open('last_network.json'))
     last_network_tracker['last_network'] = model_fn
     json.dump(last_network_tracker, open('last_network.json', 'w'))
