@@ -2,7 +2,23 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 import numpy as np
 
-def plotit(stft, mfccs, f0, voiced_prob=None):
+def plot_prediction(target, predicted, target_wave, predicted_wave):
+    plt.figure()
+    # subplots with fft, waveforms
+    plt.subplot(2, 1, 1)
+    plt.plot(target, label='target')
+    plt.plot(predicted, label='predicted')
+    plt.legend()
+
+    plt.subplot(2, 1, 2)
+    plt.plot(target_wave, label='target')
+    plt.plot(predicted_wave, label='predicted')
+    plt.legend()
+    plt.show()
+
+    return target_wave, predicted_wave
+
+def plot_features(stft, mfccs, f0, voiced_prob=None):
     # plot matrix of windows using sns
     plt.figure(figsize=(10, 4))
     plt.subplot(4, 1, 1)

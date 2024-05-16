@@ -26,7 +26,7 @@ def main():
 
     BATCH_SIZE = 32
     LEARNING_RATE = 0.002
-    EPOCHS = 1000
+    EPOCHS = 500
 
     X_train, Y_train, X_test, Y_test = get_data(audio_files_path=params['audio_files_path'], 
                                                 sample_rate=params['sample_rate'], 
@@ -53,6 +53,9 @@ def main():
     # name model file with date and time
     time = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
     model_fn = f'model_{time}.pth'
+    last_network_tracker = json.load(open('last_network.json'))
+    last_network_tracker['last_network'] = model_fn
+    json.dump(last_network_tracker, open('last_network.json', 'w'))
     torch.save(net.state_dict(), model_fn)
     print(f'Model saved as {model_fn}')
 

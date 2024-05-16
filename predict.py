@@ -1,9 +1,11 @@
 import torch
 from network import Net
-from util import load_audio_files, concatenateWaveforms
 from get_data import get_data
-import matplotlib.pyplot as plt
+from plotit import plot_prediction
 import json
+import numpy as np 
+from scipy.io.wavfile import write
+from util import make_conjugate_symmetric
 
 def predict(model, input):
     model.eval()
@@ -12,10 +14,10 @@ def predict(model, input):
     return predicted
 
 def main():
+    idx = 99
     device = torch.device('cpu')
 
     params = json.load(open('params.json'))
-
 
     _, _, X_test, Y_test = get_data(audio_files_path=params['audio_files_path'],
                                     sample_rate=params['sample_rate'],
@@ -29,20 +31,30 @@ def main():
                                     f_high=params['f_high'])
     
     network = Net(X_test.shape[1], Y_test.shape[1]).to(device)
-    model_fn = 'model_2024-05-15_00-41-19.pth'
-    state_dict = torch.load(model_fn)
+    last_network = json.load(open('last_network.json'))['last_network']
+    state_dict = torch.load(last_network)
     network.load_state_dict(state_dict)
 
-    idx = 90
     input, target = X_test[idx], Y_test[idx]
 
     predicted = predict(network, input)
     inv_pow = 1 / params['power']
-    plt.figure()
-    plt.plot(target**inv_pow, label='target')
-    plt.plot(predicted**inv_pow, label='predicted')
-    plt.legend()
-    plt.show()
+    target = target**inv_pow
+    predicted = predicted**inv_pow
+
+    # use inverse fft to convert the predicted and target to waveforms
+    target_wave = torch.fft.ifft(make_conjugate_symmetric(torch.tensor(target, dtype=torch.complex64)))
+    predicted_wave = torch.fft.ifft(make_conjugate_symmetric(torch.tensor(predicted, dtype=torch.complex64)))
+    
+    plot_prediction(target, predicted, target_wave, predicted_wave)
+
+    # write the predicted audio to a file
+    target_wave: np.ndarray = target_wave.numpy()
+    predicted_wave = predicted_wave.numpy()
+    scaled = np.int16(target_wave / np.max(np.abs(target_wave)) * 32767)
+    write('./target.wav', 22050, scaled)
+    scaled = np.int16(predicted_wave / np.max(np.abs(predicted_wave)) * 32767)
+    write('./predicted.wav', 22050, scaled)
 
 if __name__ == '__main__':
     main()

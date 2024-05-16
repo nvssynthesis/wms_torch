@@ -66,3 +66,12 @@ def next_power_of_2(n):
 def num_evenly_fitting_hops(given_size, window_size, hop_size):
     # ceiling of the given size, to fit into an integral number of windows
     return 1 + int(np.ceil((given_size - window_size + 1) / hop_size))
+
+def make_conjugate_symmetric(x: torch.Tensor) -> torch.Tensor:
+    '''
+    used to make the input to the ifft result in a real signal.
+    '''
+    conj = x[1:-1].conj()
+    conj = conj.flip(dims=[0])
+    result = torch.cat([x, conj])
+    return result

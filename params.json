@@ -6,7 +6,7 @@
     "hop_size": 160,
     "power": 0.6,
 
-    "n_mfcc": 3,
+    "n_mfcc": 8,
     "n_mel": 30,
     "f_low": 85,
     "f_high": 8000
