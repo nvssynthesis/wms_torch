@@ -1,17 +1,21 @@
 {
     "audio_files_path": "../audio",
     "sample_rate": 22050,
-    "n_fft": 1024,
-    "window_size": 1024,
+    "n_fft": 512,
+    "window_size": 512,
     "hop_size": 100,
     "power": 0.6,
 
-    "n_mfcc": 6,
-    "n_mel": 30,
+    "n_mfcc": 11,
+    "n_mel": 40,
     "f_low": 85,
     "f_high": 8000,
 
     "batch_size": 4096,
     "learning_rate": 0.003,
-    "num_epochs": 1000
+    "num_epochs": 1000,
+
+    "do_plotting_on_prediction": false,
+    "write_audio": true,
+    "write_spectrum": true
 }

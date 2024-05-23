@@ -15,15 +15,18 @@ def predict(model, input):
         predicted = model(input)
     return predicted
 
+def make_name(base_name: str, ext: str, dir: str):
+    time = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+    fn = f'{time}_{base_name}.{ext}'
+    return os.path.join(dir, fn)
+
 def write_audio(waveform, out_fs: int,  base_name: str, num_reps=10, dir: str = 'written_audio'):
     target_wave: np.ndarray = waveform.numpy()
     target_wave = np.tile(target_wave, num_reps)
     scaled = np.int16(target_wave / np.max(np.abs(target_wave)) * 32767)
 
-    time = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-    target_fn = f'{time}_{base_name}.wav'
-    target_fn = os.path.join(dir, target_fn)
-    write(target_fn, out_fs, scaled)
+    fn = make_name(base_name, 'wav', dir)
+    write(fn, out_fs, scaled)
 
 def main():
     indices = [60, 61, 62, 63, 64, 65, 66, 67, 68, 69]
@@ -54,14 +57,30 @@ def main():
         target = target**inv_pow
         predicted = predicted**inv_pow
 
-        # use inverse fft to convert the predicted and target to waveforms
-        target_wave = torch.fft.ifft(make_conjugate_symmetric(torch.tensor(target, dtype=torch.complex64)))
-        predicted_wave = torch.fft.ifft(make_conjugate_symmetric(torch.tensor(predicted, dtype=torch.complex64)))
-        
-        plot_prediction(target, predicted, target_wave, predicted_wave)
+        target = make_conjugate_symmetric(torch.tensor(target, dtype=torch.complex64))
+        predicted = make_conjugate_symmetric(torch.tensor(predicted, dtype=torch.complex64))
 
-        write_audio(target_wave, params['sample_rate'], 'target')
-        write_audio(predicted_wave, params['sample_rate'], 'predicted')
+        # use inverse fft to convert the predicted and target to waveforms
+        target_wave = torch.fft.ifft(target)
+        predicted_wave = torch.fft.ifft(predicted)
+        
+        if params['do_plotting_on_prediction']:
+            plot_prediction(target, predicted, target_wave, predicted_wave)
+            
+        if params['write_audio']:
+            print('Writing audio files...')
+            write_audio(target_wave, params['sample_rate'], f'target_{idx}')
+            write_audio(predicted_wave, params['sample_rate'], f'predicted_{idx}')
+
+        if params['write_spectrum']:
+            print(f'Writing spectrum files...')
+            # write the target and predicted spectra to .txt file
+            target_fn = make_name(f'target_spectrum_{idx}', 'txt', 'written_spectra')
+            predicted_fn = make_name(f'predicted_spectrum_{idx}', 'txt', 'written_spectra')
+            np.savetxt(target_fn, target)
+            np.savetxt(predicted_fn, predicted)
+
+    print('Done!')
 
 if __name__ == '__main__':
     main()
