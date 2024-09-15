@@ -20,7 +20,7 @@ def make_name(base_name: str, ext: str, dir: str):
     fn = f'{time}_{base_name}.{ext}'
     return os.path.join(dir, fn)
 
-def write_audio(waveform, out_fs: int,  base_name: str, num_reps=10, dir: str = 'written_audio'):
+def write_audio(waveform, out_fs: int,  base_name: str, num_reps=1, dir: str = 'written_audio'):
     target_wave: np.ndarray = waveform.numpy()
     target_wave = np.tile(target_wave, num_reps)
     scaled = np.int16(target_wave / np.max(np.abs(target_wave)) * 32767)

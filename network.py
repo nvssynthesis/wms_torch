@@ -17,7 +17,7 @@ class Net(nn.Module):
     def forward(self, x):
         y = self.dense_layers(x)
         return y 
-    
+
 
 def train_epoch(model, train_loader, loss_fn, optimizer, device, validation_loader=None) -> float:
     for inputs, targets in train_loader:

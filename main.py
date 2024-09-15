@@ -21,6 +21,7 @@ import numpy as np
 import json 
 import datetime
 import os 
+from save import save_rt_model
 
 
 class WeightedMSELoss(nn.Module):
@@ -71,24 +72,38 @@ def main():
 
     # name model file with date and time
     time = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-    model_fn = f'model_{time}.pth'
-    # place in models folder
-    model_fn = os.path.join('./models', model_fn)
-    last_network_tracker = json.load(open('last_network.json'))
-    last_network_tracker['last_network'] = model_fn
-    json.dump(last_network_tracker, open('last_network.json', 'w'))
-    torch.save(net.state_dict(), model_fn)
-    print(f'Model saved as {model_fn}')
+    if True:    # save model in pytorch format
+        model_fn = f'model_{time}.pth'
+        # place in models folder
+        model_fn = os.path.join('./models', model_fn)
+        last_network_tracker = json.load(open('last_network.json'))
+        last_network_tracker['last_network'] = model_fn
+        json.dump(last_network_tracker, open('last_network.json', 'w'))
+        torch.save(net.state_dict(), model_fn)
+        print(f'Model saved as {model_fn}')
 
-    plt.figure()
-    plt.plot(training_losses, label='Training Loss')
-    plt.plot(validation_losses, label='Validation Loss')
-    plt.ylim([0, np.max(training_losses)+0.1])
-    plt.xlabel('Epoch')
-    plt.ylabel('Loss')
-    plt.title('Training Loss')
-    plt.savefig(f'losses_{time}.png')
-    plt.show()
+    if True:    # rtneural file save
+        model_fn = f'rt_model_{time}.json'
+        # place in models folder
+        model_fn = os.path.join('./rtneural_models', model_fn)
+        last_network_tracker = json.load(open('last_network.json'))
+        last_network_tracker['last_rt_network'] = model_fn
+        json.dump(last_network_tracker, open('last_network.json', 'w'))
+#**********************************************************************
+        save_rt_model(net, model_fn)
+#**********************************************************************
+        print(f'Model saved as {model_fn}')
+
+    if True:
+        plt.figure()
+        plt.plot(training_losses, label='Training Loss')
+        plt.plot(validation_losses, label='Validation Loss')
+        plt.ylim([0, np.max(training_losses)+0.1])
+        plt.xlabel('Epoch')
+        plt.ylabel('Loss')
+        plt.title('Training Loss')
+        plt.savefig(f'plots/losses_{time}.png')
+        plt.show()
 
 if __name__ == '__main__':
     main()
