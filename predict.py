@@ -1,5 +1,5 @@
 import torch
-from network import Net
+from network import Net, RNNNet
 from get_data import get_data
 from plotit import plot_prediction
 import json
@@ -8,11 +8,13 @@ from scipy.io.wavfile import write
 from util import make_conjugate_symmetric
 import datetime
 import os 
+import matplotlib.pyplot as plt
 
-def predict(model, input):
+def predict(model: RNNNet, input):
     model.eval()
     with torch.no_grad():
-        predicted = model(input)
+        h0 = model.init_hidden(1)
+        predicted = model(input.unsqueeze(0), h0)[0]
     return predicted
 
 def make_name(base_name: str, ext: str, dir: str):
@@ -29,7 +31,7 @@ def write_audio(waveform, out_fs: int,  base_name: str, num_reps=1, dir: str = '
     write(fn, out_fs, scaled)
 
 def main():
-    indices = [60, 61, 62, 63, 64, 65, 66, 67, 68, 69]
+    indices = np.arange(0, 15)
     device = torch.device('cpu')
     params = json.load(open('params.json'))
 
@@ -44,7 +46,8 @@ def main():
                                     f_low=params['f_low'],
                                     f_high=params['f_high'])
     
-    network = Net(X_test.shape[1], Y_test.shape[1]).to(device)
+    # network = Net(X_test.shape[1], Y_test.shape[1]).to(device)
+    network = RNNNet(X_test.shape[2], hidden_size=params['hidden_size'], output_size=Y_test.shape[2], num_layers=params['num_layers']).to(device)
     last_network = json.load(open('last_network.json'))['last_network']
     state_dict = torch.load(last_network)
     network.load_state_dict(state_dict)
@@ -52,33 +55,37 @@ def main():
     for idx in indices:
         input, target = X_test[idx], Y_test[idx]
 
-        predicted = predict(network, input)
-        inv_pow = 1 / params['power']
-        target = target**inv_pow
-        predicted = predicted**inv_pow
+        # target = target[-1, :]
+        for i in range(1, len(input)):
+            curr_inp = input[:i]
+            predicted = predict(network, curr_inp)
+            inv_pow = 1 / params['power']
+            curr_target = target[i]
+            curr_target = curr_target**inv_pow
+            predicted = predicted**inv_pow
 
-        target = make_conjugate_symmetric(torch.tensor(target, dtype=torch.complex64))
-        predicted = make_conjugate_symmetric(torch.tensor(predicted, dtype=torch.complex64))
+            curr_target = make_conjugate_symmetric(torch.tensor(curr_target, dtype=torch.complex64))
+            predicted = make_conjugate_symmetric(torch.tensor(predicted.squeeze(), dtype=torch.complex64))
 
-        # use inverse fft to convert the predicted and target to waveforms
-        target_wave = torch.fft.ifft(target)
-        predicted_wave = torch.fft.ifft(predicted)
-        
-        if params['do_plotting_on_prediction']:
-            plot_prediction(target, predicted, target_wave, predicted_wave)
+            # use inverse fft to convert the predicted and target to waveforms
+            curr_target_wave = torch.fft.ifft(curr_target)
+            predicted_wave = torch.fft.ifft(predicted)
             
-        if params['write_audio']:
-            print('Writing audio files...')
-            write_audio(target_wave, params['sample_rate'], f'target_{idx}')
-            write_audio(predicted_wave, params['sample_rate'], f'predicted_{idx}')
+            if params['do_plotting_on_prediction']:
+                plot_prediction(curr_target, predicted, curr_target_wave, predicted_wave, idx, i)
+                
+            if params['write_audio']:
+                print('Writing audio files...')
+                write_audio(curr_target_wave, params['sample_rate'], f'target_{idx}')
+                write_audio(predicted_wave, params['sample_rate'], f'predicted_{idx}')
 
-        if params['write_spectrum']:
-            print(f'Writing spectrum files...')
-            # write the target and predicted spectra to .txt file
-            target_fn = make_name(f'target_spectrum_{idx}', 'txt', 'written_spectra')
-            predicted_fn = make_name(f'predicted_spectrum_{idx}', 'txt', 'written_spectra')
-            np.savetxt(target_fn, target)
-            np.savetxt(predicted_fn, predicted)
+            if params['write_spectrum']:
+                print(f'Writing spectrum files...')
+                # write the target and predicted spectra to .txt file
+                target_fn = make_name(f'target_spectrum_{idx}', 'txt', 'written_spectra')
+                predicted_fn = make_name(f'predicted_spectrum_{idx}', 'txt', 'written_spectra')
+                np.savetxt(target_fn, target)
+                np.savetxt(predicted_fn, predicted)
 
     print('Done!')
 

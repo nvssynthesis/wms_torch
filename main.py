@@ -22,6 +22,8 @@ import json
 import datetime
 import os 
 from save import save_rt_model
+from torch.optim.lr_scheduler import ExponentialLR
+import matplotlib.animation as animation
 
 
 class WeightedMSELoss(nn.Module):
@@ -55,21 +57,32 @@ def main():
     device = torch.device('cpu')
     print(f'Using device: {device}')
 
-    train_loader: torch.utils.data.dataloader = torch.utils.data.DataLoader(list(zip(X_train, Y_train)), batch_size=params['batch_size'], shuffle=True)
-    validation_loader: torch.utils.data.dataloader = torch.utils.data.DataLoader(list(zip(X_test, Y_test)), batch_size=params['batch_size'], shuffle=True)
+    train_loader: torch.utils.data.DataLoader = torch.utils.data.DataLoader(list(zip(X_train, Y_train)), batch_size=params['batch_size'], shuffle=True)
+    validation_loader: torch.utils.data.DataLoader = torch.utils.data.DataLoader(list(zip(X_test, Y_test)), batch_size=params['batch_size'], shuffle=True)
 
-    net = network.Net(X_train.shape[1], Y_train.shape[1]).to(device)
-    criterion = WeightedMSELoss()
+    # net = network.Net(X_train.shape[1], Y_train.shape[1]).to(device)
+    net = network.RNNNet(X_train.shape[2],
+                         hidden_size=params['hidden_size'], 
+                         output_size=Y_train.shape[2], 
+                         num_layers=params['num_layers']).to(device)
+    
+    criterion = nn.MSELoss() #WeightedMSELoss()
     optimizer = optim.Adam(net.parameters(), lr=params['learning_rate'])
+    scheduler = ExponentialLR(optimizer, gamma=0.9)
 
-    training_losses, validation_losses = network.train(net, 
+    training_losses, validation_losses, weights = network.train(net, 
                                                        train_loader, 
                                                        criterion, 
                                                        optimizer, 
                                                        device, 
                                                        params['num_epochs'], 
-                                                       validation_loader=validation_loader)
+                                                       validation_loader=validation_loader,
+                                                       scheduler=scheduler,
+                                                       record_weights_every=3)
+    weights = [w.detach().numpy() for w in weights]
+    # weights = np.random.rand(10, 10, 10)
 
+    animate_weights(weights)
     # name model file with date and time
     time = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
     if True:    # save model in pytorch format
@@ -104,6 +117,30 @@ def main():
         plt.title('Training Loss')
         plt.savefig(f'plots/losses_{time}.png')
         plt.show()
+
+
+def animate_weights(weights: np.array):
+    images = [weights[i] for i in range(len(weights))]
+    num_frames = len(images)
+
+    fig, ax = plt.subplots()
+    # Initialize the plot with the first image
+    im = ax.imshow(images[0], cmap='viridis', aspect='auto')
+
+    # Update function for the animation
+    def update(frame):
+        im.set_array(images[frame])
+        return [im]
+
+    # Set the framerate (frames per second)
+    fps = 20
+    interval = 1000 / fps  # Interval in milliseconds
+
+    # Create the animation
+    ani = animation.FuncAnimation(fig, update, frames=num_frames, interval=interval, blit=True, repeat=True)
+
+    # Display the animation
+    plt.show()
 
 if __name__ == '__main__':
     main()

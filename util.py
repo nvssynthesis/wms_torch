@@ -29,6 +29,22 @@ def load_audio_files(audio_path, desired_sample_rate) -> np.array:
         audio_data = [process_wave(wave, fs, desired_sample_rate)]
     return audio_data
 
+def make_sequences(data: torch.Tensor, sequence_length: int) -> torch.Tensor:
+    '''
+    Make sequences of data with a given sequence length
+    Args:
+        data (Tensor): Data
+        sequence_length (int): Sequence length
+    Returns:
+        sequences (Tensor): Sequences of data
+    '''
+    sequences = []
+    for i in range(data.shape[0] - sequence_length + 1):
+        sequences.append(data[i:i+sequence_length])
+
+    sequences = torch.stack(sequences)
+    return sequences
+
 
 def listOfWaveformsToTensor(waveforms: list[np.ndarray], window_size) -> torch.Tensor:
     '''

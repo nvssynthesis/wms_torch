@@ -1,7 +1,8 @@
 import torch.nn as nn
 import torch 
 import numpy as np
-
+import matplotlib.pyplot as plt
+from copy import deepcopy
 class Net(nn.Module):
     def __init__(self, input_size, output_size):
         super(Net, self).__init__()
@@ -18,39 +19,107 @@ class Net(nn.Module):
         y = self.dense_layers(x)
         return y 
 
+class RNNNet(nn.Module):
+    def __init__(self, input_size, hidden_size, output_size, num_layers: int = 1):
+        super(RNNNet, self).__init__()
+        self.hidden_size = hidden_size
+        self.num_layers = num_layers
+        self.rnn = nn.RNN(input_size, hidden_size, num_layers, batch_first=True)
+        self.dense_layers = nn.Sequential(
+            nn.Linear(hidden_size, 80),
+            nn.ReLU(),
+            nn.Linear(80, output_size)
+        )
 
-def train_epoch(model, train_loader, loss_fn, optimizer, device, validation_loader=None) -> float:
-    for inputs, targets in train_loader:
+    def forward(self, x, h0):
+        # Forward pass through RNN
+        out, hn = self.rnn(x, h0)
+        # Use the hidden state of the last time step
+        out = out[:, -1, :]
+        # Flatten the output before passing to dense layers
+        out = out.view(out.size(0), -1)
+        out = self.dense_layers(out)
+        return out, hn
+
+    def init_hidden(self, batch_size):
+        # Initialize hidden state with zeros
+        return torch.zeros(self.num_layers, batch_size, self.hidden_size)
+    
+    def get_weights(self) -> list[torch.Tensor]:
+        # gets all weights in the model, both in the rnn and in the dense layers
+        weights = []
+        for name, param in self.named_parameters():
+            weights.append(param)
+        return weights
+        
+
+def train_epoch(model, data_loader, loss_fn, optimizer, device, validation_loader=None):
+    model.train()
+    epoch_loss = 0.0
+    val_loss = 0.0
+    
+    n_training_samples = len(data_loader.dataset)
+    n_validation_samples = len(validation_loader.dataset) if validation_loader else 1
+    for batch_idx, (inputs, targets) in enumerate(data_loader):
         inputs, targets = inputs.to(device), targets.to(device)
-
-        # calculate the loss
-        predictions = model(inputs)
-        loss = loss_fn(predictions, targets)
-
-        # backpropagate the loss and update weights
+        
+        # Initialize hidden state
+        h0 = model.init_hidden(inputs.size(0)).to(device)
+        
+        # Zero the parameter gradients
         optimizer.zero_grad()
+        
+        # Forward pass
+        outputs, hn = model(inputs, h0)
+        
+        # Compute loss
+        loss = loss_fn(outputs, targets[:, -1, :]) # this is the last frame of the target, necessary for rnn. for dense, it would be just targets.
+        
+        # Backward pass and optimize
         loss.backward()
         optimizer.step()
+        
+        epoch_loss += loss.item()
     
-    # get the validation loss
-    if validation_loader is not None:
+    if validation_loader:
         model.eval()
         with torch.no_grad():
-            for inputs, targets in validation_loader:
-                inputs, targets = inputs.to(device), targets.to(device)
-                predictions = model(inputs)
-                val_loss = loss_fn(predictions, targets)
+            for val_inputs, val_targets in validation_loader:
+                val_inputs, val_targets = val_inputs.to(device), val_targets.to(device)
+                
+                # Initialize hidden state
+                val_h0 = model.init_hidden(val_inputs.size(0)).to(device)
+                
+                # Forward pass
+                val_outputs, val_hn = model(val_inputs, val_h0)
+                
+                # Compute loss
+                val_loss += loss_fn(val_outputs, val_targets[:, -1, :]).item()
+    
+    return epoch_loss / n_training_samples, val_loss / n_validation_samples if validation_loader else 0.0
 
-    print(f'Loss: {loss.item()}')
-    return loss.item(), val_loss.item()
 
-def train(model, data_loader, loss_fn, optimizer, device, num_epochs, validation_loader=None):
+def train(model, data_loader, loss_fn, optimizer, device, num_epochs, validation_loader=None, scheduler=None, print_every=1, record_weights_every=0):
     model.train()
     training_losses = np.zeros(num_epochs)
     validation_losses = np.zeros(num_epochs)
+    weights = []
     for epoch in range(num_epochs):
-        print(f'Epoch {epoch + 1}/{num_epochs}')
         training_losses[epoch], validation_losses[epoch] = train_epoch(model, data_loader, loss_fn, optimizer, device, validation_loader)
-        print('-' * 10)
+
+        if epoch % print_every == 0:
+            print(f'Epoch {epoch + 1}/{num_epochs} \n Training Loss: {training_losses[epoch]:.8f}')
+            if validation_loader:
+                print(f'Validation Loss: {validation_losses[epoch]:.8f}')
+            print('-' * 10)
+        
+        if record_weights_every and epoch % record_weights_every == 0:
+            curr_weights = torch.cat((model.rnn.all_weights[0][1], model.rnn.all_weights[1][0], model.rnn.all_weights[1][1]))
+            # num subplots is the number of layers in the model that have num_dim == 2
+            weights.append(curr_weights)
+
+        if scheduler:
+            scheduler.step()
+
     print('Finished training')
-    return training_losses, validation_losses
+    return training_losses, validation_losses, weights

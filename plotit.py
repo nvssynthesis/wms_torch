@@ -2,8 +2,9 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 import numpy as np
 
-def plot_prediction(target, predicted, target_wave, predicted_wave):
+def plot_prediction(target, predicted, target_wave, predicted_wave, sample_idx, subsequence_idx):
     plt.figure()
+    plt.title(f'Sample {sample_idx}, Subsequence 0-{subsequence_idx}')
     # subplots with fft, waveforms
     plt.subplot(2, 1, 1)
     plt.plot(target, label='target')
