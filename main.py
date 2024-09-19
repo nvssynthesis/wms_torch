@@ -22,7 +22,7 @@ import json
 import datetime
 import os 
 from save import save_rt_model
-from torch.optim.lr_scheduler import ExponentialLR, StepLR
+from torch.optim.lr_scheduler import ExponentialLR, StepLR, CyclicLR
 import matplotlib.animation as animation
 
 
@@ -68,8 +68,11 @@ def main():
                          num_layers=params['num_layers']).to(device)
     
     criterion = WeightedMSELoss()
-    optimizer = optim.Adam(net.parameters(), lr=params['learning_rate'], weight_decay=0.001)
-    scheduler = ExponentialLR(optimizer, gamma=0.99)
+    # optimizer = optim.Adam(net.parameters(), lr=params['learning_rate'], weight_decay=0.001)
+    optimizer = optim.SGD(net.parameters(), lr=params['learning_rate'], weight_decay=0.001, momentum=0.9, nesterov=True)
+    scheduler = ExponentialLR(optimizer, gamma=0.97)
+    # scheduler = CyclicLR(optimizer, base_lr=0.01, max_lr=0.1, 
+    #                      step_size_up=15, step_size_down=15, mode='triangular2', cycle_momentum=True, base_momentum=0.8, max_momentum=0.9)
     # scheduler2 = StepLR
 
     training_losses, validation_losses, weights = network.train(net, 
@@ -110,7 +113,11 @@ def main():
     if True:
         plt.figure()
         plt.plot(training_losses, label='Training Loss')
+        # display value of last training loss at the point
+        # plt.text(len(training_losses)-1, training_losses[-1], f'{training_losses[-1]:.4f}')
         plt.plot(validation_losses, label='Validation Loss')
+        # display value of last validation loss at the point
+        plt.text(len(validation_losses)-1, validation_losses[-1], f'{validation_losses[-1]:.4f}')
         plt.ylim([0, np.max(training_losses)+np.max(training_losses)*0.1])
         plt.xlabel('Epoch')
         plt.ylabel('Loss')

@@ -16,7 +16,7 @@
 
     "num_layers": 2,
     "batch_size": 8192,
-    "learning_rate": 0.018,
+    "learning_rate": 0.036,
     "num_epochs": 750,
 
     "do_plotting_on_prediction": true,
