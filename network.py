@@ -26,9 +26,8 @@ class RNNNet(nn.Module):
         self.num_layers = num_layers
         self.rnn = nn.RNN(input_size, hidden_size, num_layers, batch_first=True)
         self.dense_layers = nn.Sequential(
-            nn.Linear(hidden_size, 80),
+            nn.Linear(hidden_size, output_size),
             nn.ReLU(),
-            nn.Linear(80, output_size)
         )
 
     def forward(self, x, h0):
@@ -96,7 +95,7 @@ def train_epoch(model, data_loader, loss_fn, optimizer, device, validation_loade
                 # Compute loss
                 val_loss += loss_fn(val_outputs, val_targets[:, -1, :]).item()
     
-    return epoch_loss / n_training_samples, val_loss / n_validation_samples if validation_loader else 0.0
+    return epoch_loss, (val_loss / n_validation_samples) * n_training_samples if validation_loader else 0.0
 
 
 def train(model, data_loader, loss_fn, optimizer, device, num_epochs, validation_loader=None, scheduler=None, print_every=1, record_weights_every=0):
@@ -108,15 +107,27 @@ def train(model, data_loader, loss_fn, optimizer, device, num_epochs, validation
         training_losses[epoch], validation_losses[epoch] = train_epoch(model, data_loader, loss_fn, optimizer, device, validation_loader)
 
         if epoch % print_every == 0:
-            print(f'Epoch {epoch + 1}/{num_epochs} \n Training Loss: {training_losses[epoch]:.8f}')
+            print(f'Epoch {epoch + 1}/{num_epochs} \n Training Loss: {training_losses[epoch]:.5f}')
             if validation_loader:
-                print(f'Validation Loss: {validation_losses[epoch]:.8f}')
-            print('-' * 10)
+                print(f'Validation Loss: {validation_losses[epoch]:.5f}')
+            if scheduler:
+                print(f'Learning rate: {scheduler.get_last_lr()[0]}')
+            for name, param in model.named_parameters():
+                print(f'{name} has norm {torch.norm(param)}')
+            print('-' * 50)
         
         if record_weights_every and epoch % record_weights_every == 0:
-            curr_weights = torch.cat((model.rnn.all_weights[0][1], model.rnn.all_weights[1][0], model.rnn.all_weights[1][1]))
-            # num subplots is the number of layers in the model that have num_dim == 2
-            weights.append(curr_weights)
+            weights_curr = [we.flatten() for we in model.get_weights()]
+            weights_cat = torch.cat(weights_curr)
+            L = int(np.floor(np.sqrt(len(weights_cat))) ** 2)
+            weights_cat = weights_cat[:L]
+            L = int(np.sqrt(L))
+            weights_shaped = weights_cat.reshape((L, L))
+            weights.append(weights_shaped)
+        
+        #get norm of weights
+
+
 
         if scheduler:
             scheduler.step()

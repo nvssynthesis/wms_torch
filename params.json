@@ -11,13 +11,13 @@
     "f_low": 85,
     "f_high": 8000,
 
-    "model_type": "MLP",
-    "hidden_size": 80,
+    "model_type": "RNN",
+    "hidden_size": 64,
 
     "num_layers": 2,
-    "batch_size": 4096,
-    "learning_rate": 0.005,
-    "num_epochs": 35,
+    "batch_size": 8192,
+    "learning_rate": 0.018,
+    "num_epochs": 750,
 
     "do_plotting_on_prediction": true,
     "write_audio": true,

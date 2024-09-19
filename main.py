@@ -22,7 +22,7 @@ import json
 import datetime
 import os 
 from save import save_rt_model
-from torch.optim.lr_scheduler import ExponentialLR
+from torch.optim.lr_scheduler import ExponentialLR, StepLR
 import matplotlib.animation as animation
 
 
@@ -34,7 +34,8 @@ class WeightedMSELoss(nn.Module):
         # weigh each frequency bin by its index. the 0th bin should receive full weight, 
         # and each successive bin should receive .5 the weight of the previous bin.
         num_feats = predictions.shape[1]
-        powvec = torch.arange(0, -1, -(1/num_feats), device=predictions.device)
+        r = 0.45
+        powvec = torch.arange(0, -r, -(r/num_feats), device=predictions.device)
         weights = torch.pow(2.0, 1.0*powvec)
         weights = (weights / torch.sum(weights)) * num_feats
 
@@ -66,9 +67,10 @@ def main():
                          output_size=Y_train.shape[2], 
                          num_layers=params['num_layers']).to(device)
     
-    criterion = nn.MSELoss() #WeightedMSELoss()
-    optimizer = optim.Adam(net.parameters(), lr=params['learning_rate'])
-    scheduler = ExponentialLR(optimizer, gamma=0.9)
+    criterion = WeightedMSELoss()
+    optimizer = optim.Adam(net.parameters(), lr=params['learning_rate'], weight_decay=0.001)
+    scheduler = ExponentialLR(optimizer, gamma=0.99)
+    # scheduler2 = StepLR
 
     training_losses, validation_losses, weights = network.train(net, 
                                                        train_loader, 
@@ -78,11 +80,9 @@ def main():
                                                        params['num_epochs'], 
                                                        validation_loader=validation_loader,
                                                        scheduler=scheduler,
-                                                       record_weights_every=3)
-    weights = [w.detach().numpy() for w in weights]
-    # weights = np.random.rand(10, 10, 10)
-
+                                                       record_weights_every=1)
     animate_weights(weights)
+
     # name model file with date and time
     time = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
     if True:    # save model in pytorch format
@@ -111,7 +111,7 @@ def main():
         plt.figure()
         plt.plot(training_losses, label='Training Loss')
         plt.plot(validation_losses, label='Validation Loss')
-        plt.ylim([0, np.max(training_losses)+0.1])
+        plt.ylim([0, np.max(training_losses)+np.max(training_losses)*0.1])
         plt.xlabel('Epoch')
         plt.ylabel('Loss')
         plt.title('Training Loss')
@@ -120,12 +120,14 @@ def main():
 
 
 def animate_weights(weights: np.array):
-    images = [weights[i] for i in range(len(weights))]
+    images = [weights[i].detach().numpy() for i in range(len(weights))]
     num_frames = len(images)
 
     fig, ax = plt.subplots()
     # Initialize the plot with the first image
     im = ax.imshow(images[0], cmap='viridis', aspect='auto')
+    #include colorbar
+    plt.colorbar(im)
 
     # Update function for the animation
     def update(frame):
@@ -138,6 +140,10 @@ def animate_weights(weights: np.array):
 
     # Create the animation
     ani = animation.FuncAnimation(fig, update, frames=num_frames, interval=interval, blit=True, repeat=True)
+    path = './plots/'
+    time_str = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+    path = os.path.join(path, f'weights_animation_{time_str}.gif')
+    ani.save(path, writer='pillow', fps=fps)
 
     # Display the animation
     plt.show()
