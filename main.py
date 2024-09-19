@@ -22,7 +22,7 @@ import json
 import datetime
 import os 
 from save import save_rt_model
-from torch.optim.lr_scheduler import ExponentialLR, StepLR, CyclicLR
+from torch.optim.lr_scheduler import ExponentialLR, StepLR, CyclicLR, MultiplicativeLR, MultiStepLR 
 import matplotlib.animation as animation
 
 
@@ -68,9 +68,12 @@ def main():
                          num_layers=params['num_layers']).to(device)
     
     criterion = WeightedMSELoss()
-    # optimizer = optim.Adam(net.parameters(), lr=params['learning_rate'], weight_decay=0.001)
-    optimizer = optim.SGD(net.parameters(), lr=params['learning_rate'], weight_decay=0.001, momentum=0.9, nesterov=True)
-    scheduler = ExponentialLR(optimizer, gamma=0.97)
+    optimizer = optim.Adam(net.parameters(), lr=params['learning_rate'], weight_decay=0.001, amsgrad=True)
+    # optimizer = optim.SGD(net.parameters(), lr=params['learning_rate'], weight_decay=0.001)#, momentum=0.95, nesterov=True)
+    scheduler = ExponentialLR(optimizer, gamma=0.99)
+    # milestones = [7, 15, 30, 45, 80, 100, 120, 160, 200, 400, 800, 1000]
+    # scheduler = MultiStepLR(optimizer, milestones=milestones, gamma=0.5)
+    # scheduler = MultiplicativeLR(optimizer, lr_lambda=lambda epoch: 0.97)
     # scheduler = CyclicLR(optimizer, base_lr=0.01, max_lr=0.1, 
     #                      step_size_up=15, step_size_down=15, mode='triangular2', cycle_momentum=True, base_momentum=0.8, max_momentum=0.9)
     # scheduler2 = StepLR
