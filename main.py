@@ -68,9 +68,9 @@ def main():
                          num_layers=params['num_layers']).to(device)
     
     criterion = WeightedMSELoss()
-    optimizer = optim.Adam(net.parameters(), lr=params['learning_rate'], weight_decay=0.001, amsgrad=True)
+    optimizer = optim.Adam(net.parameters(), lr=params['learning_rate'], weight_decay=0.0015, amsgrad=True)
     # optimizer = optim.SGD(net.parameters(), lr=params['learning_rate'], weight_decay=0.001)#, momentum=0.95, nesterov=True)
-    scheduler = ExponentialLR(optimizer, gamma=0.99)
+    scheduler = ExponentialLR(optimizer, gamma=0.996)
     # milestones = [7, 15, 30, 45, 80, 100, 120, 160, 200, 400, 800, 1000]
     # scheduler = MultiStepLR(optimizer, milestones=milestones, gamma=0.5)
     # scheduler = MultiplicativeLR(optimizer, lr_lambda=lambda epoch: 0.97)

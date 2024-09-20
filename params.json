@@ -12,11 +12,11 @@
     "f_high": 8000,
 
     "model_type": "RNN",
-    "hidden_size": 64,
+    "hidden_size": 128,
 
-    "num_layers": 2,
+    "num_layers": 1,
     "batch_size": 8192,
-    "learning_rate": 0.016,
+    "learning_rate": 0.023,
     "num_epochs": 1200,
 
     "do_plotting_on_prediction": true,

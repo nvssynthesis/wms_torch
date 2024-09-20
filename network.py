@@ -24,7 +24,7 @@ class RNNNet(nn.Module):
         super(RNNNet, self).__init__()
         self.hidden_size = hidden_size
         self.num_layers = num_layers
-        self.rnn = nn.RNN(input_size, hidden_size, num_layers, batch_first=True)
+        self.rnn = nn.RNN(input_size, hidden_size, num_layers, batch_first=True, nonlinearity='relu')
         self.dense_layers = nn.Sequential(
             nn.Linear(hidden_size, output_size),
             nn.ReLU(),
