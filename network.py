@@ -61,40 +61,30 @@ def train_epoch(model, data_loader: torch.utils.data.DataLoader, loss_fn, optimi
     n_training_samples = len(data_loader.dataset)
     n_validation_samples = len(validation_loader.dataset) if validation_loader else 1
     for batch_idx, (inputs, targets) in enumerate(data_loader):
-        inputs, targets = inputs.to(device), targets.to(device)
-        
-        # Initialize hidden state
-        h0 = model.init_hidden(inputs.size(0)).to(device)
-        
-        # Zero the parameter gradients
-        optimizer.zero_grad()
-        
-        # Forward pass
-        outputs, hn = model(inputs, h0)
-        
-        # Compute loss
-        loss = loss_fn(outputs, targets[:, -1, :]) # this is the last frame of the target, necessary for rnn. for dense, it would be just targets.
-        
-        # Backward pass and optimize
-        loss.backward()
-        optimizer.step()
-        
-        epoch_loss += loss.item()
+        targets = targets.to(device)
+        for subseq_idx in range(0, inputs.size(1), 3):
+            subseq_inputs = inputs[:, subseq_idx:, :]
+            subseq_inputs = subseq_inputs.to(device)
+            h0 = model.init_hidden(subseq_inputs.size(0)).to(device)
+            optimizer.zero_grad()
+            outputs, hn = model(subseq_inputs, h0)
+            loss = loss_fn(outputs, targets[:, -1, :]) # this is the last frame of the target, necessary for rnn. for dense, it would be just targets.
+            loss.backward()
+            optimizer.step()
+            epoch_loss += loss.item()
     
     if validation_loader:
         model.eval()
         with torch.no_grad():
             for val_inputs, val_targets in validation_loader:
-                val_inputs, val_targets = val_inputs.to(device), val_targets.to(device)
-                
-                # Initialize hidden state
-                val_h0 = model.init_hidden(val_inputs.size(0)).to(device)
-                
-                # Forward pass
-                val_outputs, val_hn = model(val_inputs, val_h0)
-                
-                # Compute loss
-                val_loss += loss_fn(val_outputs, val_targets[:, -1, :]).item()
+                val_targets = val_targets.to(device)
+                for subseq_idx in range(0, inputs.size(1), 3):
+                    val_subseq_inputs = val_inputs[:, subseq_idx:, :]
+                    val_subseq_inputs = val_subseq_inputs.to(device)
+
+                    val_h0 = model.init_hidden(val_subseq_inputs.size(0)).to(device)
+                    val_outputs, val_hn = model(val_subseq_inputs, val_h0)
+                    val_loss += loss_fn(val_outputs, val_targets[:, -1, :]).item()
     
     return epoch_loss, (val_loss / n_validation_samples) * n_training_samples if validation_loader else 0.0
 
