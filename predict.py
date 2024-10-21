@@ -44,7 +44,8 @@ def main():
                                     n_mfcc=params['n_mfcc'],
                                     n_mel=params['n_mel'],
                                     f_low=params['f_low'],
-                                    f_high=params['f_high'])
+                                    f_high=params['f_high'],
+                                    training_seq_length=params['training_seq_length'])
     
     # network = Net(X_test.shape[1], Y_test.shape[1]).to(device)
     network = RNNNet(X_test.shape[2], hidden_size=params['hidden_size'], output_size=Y_test.shape[2], num_layers=params['num_layers']).to(device)
@@ -57,7 +58,7 @@ def main():
 
         # target = target[-1, :]
         for i in range(1, len(input)):
-            curr_inp = input[:i]
+            curr_inp = input[:i+1]
             predicted = predict(network, curr_inp)
             inv_pow = 1 / params['power']
             curr_target = target[i]

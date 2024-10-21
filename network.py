@@ -52,7 +52,8 @@ class RNNNet(nn.Module):
         return weights
         
 
-def train_epoch(model, data_loader, loss_fn, optimizer, device, validation_loader=None):
+def train_epoch(model, data_loader: torch.utils.data.DataLoader, loss_fn, optimizer, device, 
+                validation_loader: torch.utils.data.DataLoader = None):
     model.train()
     epoch_loss = 0.0
     val_loss = 0.0

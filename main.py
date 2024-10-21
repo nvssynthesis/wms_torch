@@ -53,7 +53,8 @@ def main():
                                                 n_mfcc=params['n_mfcc'],
                                                 n_mel=params['n_mel'],
                                                 f_low=params['f_low'],
-                                                f_high=params['f_high'])
+                                                f_high=params['f_high'],
+                                                training_seq_length=params['training_seq_length'],)
 
     device = torch.device('cpu')
     print(f'Using device: {device}')
@@ -61,7 +62,6 @@ def main():
     train_loader: torch.utils.data.DataLoader = torch.utils.data.DataLoader(list(zip(X_train, Y_train)), batch_size=params['batch_size'], shuffle=True)
     validation_loader: torch.utils.data.DataLoader = torch.utils.data.DataLoader(list(zip(X_test, Y_test)), batch_size=params['batch_size'], shuffle=True)
 
-    # net = network.Net(X_train.shape[1], Y_train.shape[1]).to(device)
     net = network.RNNNet(X_train.shape[2],
                          hidden_size=params['hidden_size'], 
                          output_size=Y_train.shape[2], 
@@ -70,10 +70,10 @@ def main():
     criterion = WeightedMSELoss()
     optimizer = optim.Adam(net.parameters(), lr=params['learning_rate'], weight_decay=0.0015, amsgrad=True)
     # optimizer = optim.SGD(net.parameters(), lr=params['learning_rate'], weight_decay=0.001)#, momentum=0.95, nesterov=True)
-    scheduler = ExponentialLR(optimizer, gamma=0.996)
+    # scheduler = ExponentialLR(optimizer, gamma=0.993)
     # milestones = [7, 15, 30, 45, 80, 100, 120, 160, 200, 400, 800, 1000]
     # scheduler = MultiStepLR(optimizer, milestones=milestones, gamma=0.5)
-    # scheduler = MultiplicativeLR(optimizer, lr_lambda=lambda epoch: 0.97)
+    scheduler = MultiplicativeLR(optimizer, lr_lambda=lambda epoch: 0.995)
     # scheduler = CyclicLR(optimizer, base_lr=0.01, max_lr=0.1, 
     #                      step_size_up=15, step_size_down=15, mode='triangular2', cycle_momentum=True, base_momentum=0.8, max_momentum=0.9)
     # scheduler2 = StepLR
@@ -87,7 +87,6 @@ def main():
                                                        validation_loader=validation_loader,
                                                        scheduler=scheduler,
                                                        record_weights_every=1)
-    animate_weights(weights)
 
     # name model file with date and time
     time = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
@@ -127,6 +126,8 @@ def main():
         plt.title('Training Loss')
         plt.savefig(f'plots/losses_{time}.png')
         plt.show()
+        if False:
+            animate_weights(weights)
 
 
 def animate_weights(weights: np.array):

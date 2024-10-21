@@ -4,12 +4,13 @@ import numpy as np
 
 def plot_prediction(target, predicted, target_wave, predicted_wave, sample_idx, subsequence_idx):
     plt.figure()
-    plt.title(f'Sample {sample_idx}, Subsequence 0-{subsequence_idx}')
+    plt.clf()  
     # subplots with fft, waveforms
     plt.subplot(2, 1, 1)
     plt.plot(target, label='target')
     plt.plot(predicted, label='predicted')
     plt.legend()
+    plt.title(f'Sample {sample_idx}, Subsequence 0-{subsequence_idx}')
 
     plt.subplot(2, 1, 2)
     plt.plot(target_wave, label='target')
