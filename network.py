@@ -20,19 +20,22 @@ class Net(nn.Module):
         return y 
 
 class RNNNet(nn.Module):
-    def __init__(self, input_size, hidden_size, output_size, num_layers: int = 1):
+    def __init__(self, input_size, hidden_size, output_size, num_layers: int = 1, dropout_prob: float = 0.1):
         super(RNNNet, self).__init__()
         self.hidden_size = hidden_size
         self.num_layers = num_layers
         self.rnn = nn.RNN(input_size, hidden_size, num_layers, batch_first=True, nonlinearity='relu')
+        self.dropout = nn.Dropout(dropout_prob)
         self.dense_layers = nn.Sequential(
             nn.Linear(hidden_size, output_size),
             nn.ReLU(),
+            # nn.Dropout(dropout_prob)
         )
 
     def forward(self, x, h0):
         # Forward pass through RNN
         out, hn = self.rnn(x, h0)
+        out = self.dropout(out)
         # Use the hidden state of the last time step
         out = out[:, -1, :]
         # Flatten the output before passing to dense layers
