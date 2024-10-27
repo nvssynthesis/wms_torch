@@ -48,9 +48,13 @@ class GRUNet(nn.Module):
         out = self.dense_layers(out)
         return out, hn
 
-    def init_hidden(self, batch_size):
-        # Initialize hidden state with zeros
-        return torch.zeros(self.num_layers, batch_size, self.hidden_size)
+    def init_hidden(self, batch_size, init_method='zeros'):
+        if init_method == 'zeros':
+            return torch.zeros(self.num_layers, batch_size, self.hidden_size)
+        elif init_method == 'normal':
+            return torch.randn(self.num_layers, batch_size, self.hidden_size)
+        else:
+            raise ValueError('Invalid init method')
     
     def get_weights(self) -> list[torch.Tensor]:
         # gets all weights in the model, both in the gru and in the dense layers

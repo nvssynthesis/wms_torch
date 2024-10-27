@@ -24,6 +24,7 @@ import os
 from save import save_rt_model
 from torch.optim.lr_scheduler import ExponentialLR, StepLR, CyclicLR, MultiplicativeLR, MultiStepLR 
 import matplotlib.animation as animation
+from util import set_seed
 
 
 class WeightedMSELoss(nn.Module):
@@ -42,6 +43,7 @@ class WeightedMSELoss(nn.Module):
         return torch.mean(weights * (predictions - targets) ** 2.0)
 
 def main():
+    set_seed(42)
     params = json.load(open('params.json'))
 
     X_train, Y_train, X_test, Y_test = get_data(audio_files_path=params['audio_files_path'], 

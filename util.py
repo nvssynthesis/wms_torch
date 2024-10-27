@@ -4,6 +4,17 @@ import torch
 import math 
 import numpy as np
 import torchaudio.transforms as T
+import random
+
+def set_seed(seed=None):
+    if seed is not None:
+        random.seed(seed)
+        np.random.seed(seed)
+        torch.manual_seed(seed)
+        torch.cuda.manual_seed(seed)
+        torch.cuda.manual_seed_all(seed)  
+        torch.backends.cudnn.deterministic = True
+        torch.backends.cudnn.benchmark = False
 
 def process_wave(wave: np.ndarray, current_fs: float, desired_fs: float):
     resampler = T.Resample(current_fs, desired_fs, dtype=wave.dtype)
