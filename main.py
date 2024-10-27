@@ -52,10 +52,16 @@ def main():
     net = network.GRUNet(X_train.shape[2],
                          hidden_size=params['hidden_size'], 
                          output_size=Y_train.shape[2], 
-                         num_layers=params['num_layers']).to(device)
+                         num_layers=params['num_layers'],
+                         dropout_prob=params['dropout']).to(device)
     
     criterion = get_criterion(params['criterion'])
-    optimizer = optim.Adam(net.parameters(), lr=params['learning_rate'], weight_decay=params['weight_decay'], amsgrad=True,)
+    if params['optimizer'] == 'Adam':
+        optimizer = optim.Adam(net.parameters(), lr=params['learning_rate'], weight_decay=params['weight_decay'], amsgrad=params['amsgrad'],)
+    elif params['optimizer'] == 'AdamW':
+        optimizer = optim.AdamW(net.parameters(), lr=params['learning_rate'], weight_decay=params['weight_decay'], amsgrad=params['amsgrad'],)
+    elif params['optimizer'] == 'SGD':
+        optimizer = optim.SGD(net.parameters(), lr=params['learning_rate'], weight_decay=params['weight_decay'], momentum=params['momentum'])
     scheduler = MultiplicativeLR(optimizer, lr_lambda=lambda epoch: 0.997)
 
     training_losses, validation_losses, weights = network.train(net, 
@@ -67,7 +73,8 @@ def main():
                                                        validation_loader=validation_loader,
                                                        scheduler=scheduler,
                                                        record_weights_every=1,
-                                                       scratch_model_dir='./scratch_model_dir')
+                                                       scratch_model_dir='./scratch_model_dir',
+                                                       num_batches=params['num_batches'])
 
     # name model file with date and time
     time = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")

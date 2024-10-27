@@ -65,7 +65,8 @@ class GRUNet(nn.Module):
         
 
 def train_epoch(model, data_loader: torch.utils.data.DataLoader, loss_fn, optimizer, device, 
-                validation_loader: torch.utils.data.DataLoader = None):
+                validation_loader: torch.utils.data.DataLoader = None,
+                num_batches: int = None):
     model.train()
     epoch_loss = 0.0
     val_loss = 0.0
@@ -73,6 +74,8 @@ def train_epoch(model, data_loader: torch.utils.data.DataLoader, loss_fn, optimi
     n_training_samples = len(data_loader.dataset)
     n_validation_samples = len(validation_loader.dataset) if validation_loader else 1
     for batch_idx, (inputs, targets) in enumerate(data_loader):
+        if num_batches is not None and batch_idx >= num_batches:
+            break
         targets = targets.to(device)
         for subseq_idx in range(0, inputs.size(1), 3):
             subseq_inputs = inputs[:, subseq_idx:, :]
@@ -103,13 +106,14 @@ def train_epoch(model, data_loader: torch.utils.data.DataLoader, loss_fn, optimi
 
 def train(model, data_loader, loss_fn, optimizer, device, num_epochs, validation_loader=None, scheduler=None, print_every=1, 
           record_weights_every=0,
-          scratch_model_dir=None):
+          scratch_model_dir=None,
+          num_batches=None):
     model.train()
     training_losses = np.zeros(num_epochs)
     validation_losses = np.zeros(num_epochs)
     weights = []
     for epoch in range(num_epochs):
-        training_losses[epoch], validation_losses[epoch] = train_epoch(model, data_loader, loss_fn, optimizer, device, validation_loader)
+        training_losses[epoch], validation_losses[epoch] = train_epoch(model, data_loader, loss_fn, optimizer, device, validation_loader, num_batches=num_batches)
 
         if epoch % print_every == 0:
             print(f'Epoch {epoch + 1}/{num_epochs} \n Training Loss: {training_losses[epoch]:.5f}')
