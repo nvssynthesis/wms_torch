@@ -24,23 +24,8 @@ import os
 from save import save_rt_model
 from torch.optim.lr_scheduler import ExponentialLR, StepLR, CyclicLR, MultiplicativeLR, MultiStepLR 
 import matplotlib.animation as animation
-from util import set_seed
+from util import set_seed, get_criterion
 
-
-class WeightedMSELoss(nn.Module):
-    def __init__(self):
-        super(WeightedMSELoss, self).__init__()
-
-    def forward(self, predictions: torch.tensor, targets: torch.tensor):
-        # weigh each frequency bin by its index. the 0th bin should receive full weight, 
-        # and each successive bin should receive .5 the weight of the previous bin.
-        num_feats = predictions.shape[1]
-        r = 0.45
-        powvec = torch.arange(0, -r, -(r/num_feats), device=predictions.device)
-        weights = torch.pow(2.0, 1.0*powvec)
-        weights = (weights / torch.sum(weights)) * num_feats
-
-        return torch.mean(weights * (predictions - targets) ** 2.0)
 
 def main():
     set_seed(42)
@@ -69,16 +54,9 @@ def main():
                          output_size=Y_train.shape[2], 
                          num_layers=params['num_layers']).to(device)
     
-    criterion = WeightedMSELoss()
-    optimizer = optim.Adam(net.parameters(), lr=params['learning_rate'], weight_decay=0.0015, amsgrad=True,)
-    # optimizer = optim.SGD(net.parameters(), lr=params['learning_rate'], weight_decay=0.001)#, momentum=0.95, nesterov=True)
-    # scheduler = ExponentialLR(optimizer, gamma=0.993)
-    # milestones = [7, 15, 30, 45, 80, 100, 120, 160, 200, 400, 800, 1000]
-    # scheduler = MultiStepLR(optimizer, milestones=milestones, gamma=0.5)
+    criterion = get_criterion(params['criterion'])
+    optimizer = optim.Adam(net.parameters(), lr=params['learning_rate'], weight_decay=params['weight_decay'], amsgrad=True,)
     scheduler = MultiplicativeLR(optimizer, lr_lambda=lambda epoch: 0.997)
-    # scheduler = CyclicLR(optimizer, base_lr=0.01, max_lr=0.1, 
-    #                      step_size_up=15, step_size_down=15, mode='triangular2', cycle_momentum=True, base_momentum=0.8, max_momentum=0.9)
-    # scheduler2 = StepLR
 
     training_losses, validation_losses, weights = network.train(net, 
                                                        train_loader, 

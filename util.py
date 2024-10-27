@@ -3,8 +3,10 @@ import torchaudio
 import torch
 import math 
 import numpy as np
+import torch.nn as nn
 import torchaudio.transforms as T
 import random
+from enum import Enum, auto
 
 def set_seed(seed=None):
     if seed is not None:
@@ -15,6 +17,29 @@ def set_seed(seed=None):
         torch.cuda.manual_seed_all(seed)  
         torch.backends.cudnn.deterministic = True
         torch.backends.cudnn.benchmark = False
+
+class WeightedMSELoss(nn.Module):
+    def __init__(self):
+        super(WeightedMSELoss, self).__init__()
+
+    def forward(self, predictions: torch.tensor, targets: torch.tensor):
+        # weigh each frequency bin by its index. the 0th bin should receive full weight, 
+        # and each successive bin should receive .5 the weight of the previous bin.
+        num_feats = predictions.shape[1]
+        r = 0.45
+        powvec = torch.arange(0, -r, -(r/num_feats), device=predictions.device)
+        weights = torch.pow(2.0, 1.0*powvec)
+        weights = (weights / torch.sum(weights)) * num_feats
+
+        return torch.mean(weights * (predictions - targets) ** 2.0)
+
+def get_criterion(s: str):
+    if s == 'MSE':
+        return torch.nn.MSELoss()
+    elif s == 'WeightedMSE':
+        return WeightedMSELoss()
+    else:
+        raise ValueError('Invalid criterion')
 
 def process_wave(wave: np.ndarray, current_fs: float, desired_fs: float):
     resampler = T.Resample(current_fs, desired_fs, dtype=wave.dtype)
