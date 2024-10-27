@@ -1,5 +1,5 @@
 import torch
-from network import Net, RNNNet
+from network import Net, GRUNet
 from get_data import get_data
 from plotit import plot_prediction
 import json
@@ -10,7 +10,7 @@ import datetime
 import os 
 import matplotlib.pyplot as plt
 
-def predict(model: RNNNet, input):
+def predict(model: GRUNet, input):
     model.eval()
     with torch.no_grad():
         h0 = model.init_hidden(1)
@@ -48,7 +48,7 @@ def main():
                                     training_seq_length=params['training_seq_length'])
     
     # network = Net(X_test.shape[1], Y_test.shape[1]).to(device)
-    network = RNNNet(X_test.shape[2], hidden_size=params['hidden_size'], output_size=Y_test.shape[2], num_layers=params['num_layers']).to(device)
+    network = GRUNet(X_test.shape[2], hidden_size=params['hidden_size'], output_size=Y_test.shape[2], num_layers=params['num_layers']).to(device)
     last_network = json.load(open('last_network.json'))['last_network']
     state_dict = torch.load(last_network)
     network.load_state_dict(state_dict)

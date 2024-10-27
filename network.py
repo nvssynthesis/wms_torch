@@ -3,6 +3,11 @@ import torch
 import numpy as np
 import matplotlib.pyplot as plt
 from copy import deepcopy
+import os 
+import json
+import datetime
+from save import save_rt_model
+
 class Net(nn.Module):
     def __init__(self, input_size, output_size):
         super(Net, self).__init__()
@@ -19,13 +24,13 @@ class Net(nn.Module):
         y = self.dense_layers(x)
         return y 
 
-class RNNNet(nn.Module):
+class GRUNet(nn.Module):
     def __init__(self, input_size, hidden_size, output_size, num_layers: int = 1, dropout_prob: float = 0.1):
-        super(RNNNet, self).__init__()
+        super(GRUNet, self).__init__()
         self.hidden_size = hidden_size
         self.num_layers = num_layers
-        self.rnn = nn.RNN(input_size, hidden_size, num_layers, batch_first=True, nonlinearity='relu')
-        self.dropout = nn.Dropout(dropout_prob)
+        self.gru = nn.GRU(input_size, hidden_size, num_layers, batch_first=True, dropout=dropout_prob)
+        # self.dropout = nn.Dropout(dropout_prob)
         self.dense_layers = nn.Sequential(
             nn.Linear(hidden_size, output_size),
             nn.ReLU(),
@@ -33,9 +38,9 @@ class RNNNet(nn.Module):
         )
 
     def forward(self, x, h0):
-        # Forward pass through RNN
-        out, hn = self.rnn(x, h0)
-        out = self.dropout(out)
+        # Forward pass through GRU
+        out, hn = self.gru(x, h0)
+
         # Use the hidden state of the last time step
         out = out[:, -1, :]
         # Flatten the output before passing to dense layers
@@ -48,7 +53,7 @@ class RNNNet(nn.Module):
         return torch.zeros(self.num_layers, batch_size, self.hidden_size)
     
     def get_weights(self) -> list[torch.Tensor]:
-        # gets all weights in the model, both in the rnn and in the dense layers
+        # gets all weights in the model, both in the gru and in the dense layers
         weights = []
         for name, param in self.named_parameters():
             weights.append(param)
@@ -71,7 +76,7 @@ def train_epoch(model, data_loader: torch.utils.data.DataLoader, loss_fn, optimi
             h0 = model.init_hidden(subseq_inputs.size(0)).to(device)
             optimizer.zero_grad()
             outputs, hn = model(subseq_inputs, h0)
-            loss = loss_fn(outputs, targets[:, -1, :]) # this is the last frame of the target, necessary for rnn. for dense, it would be just targets.
+            loss = loss_fn(outputs, targets[:, -1, :]) # this is the last frame of the target, necessary for gru. for dense, it would be just targets.
             loss.backward()
             optimizer.step()
             epoch_loss += loss.item()
@@ -92,7 +97,9 @@ def train_epoch(model, data_loader: torch.utils.data.DataLoader, loss_fn, optimi
     return epoch_loss, (val_loss / n_validation_samples) * n_training_samples if validation_loader else 0.0
 
 
-def train(model, data_loader, loss_fn, optimizer, device, num_epochs, validation_loader=None, scheduler=None, print_every=1, record_weights_every=0):
+def train(model, data_loader, loss_fn, optimizer, device, num_epochs, validation_loader=None, scheduler=None, print_every=1, 
+          record_weights_every=0,
+          scratch_model_dir=None):
     model.train()
     training_losses = np.zeros(num_epochs)
     validation_losses = np.zeros(num_epochs)
@@ -121,6 +128,21 @@ def train(model, data_loader, loss_fn, optimizer, device, num_epochs, validation
         
         #get norm of weights
 
+        if scratch_model_dir and epoch % 15 == 0:      
+            time = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S") 
+            # create directory if it doesn't exist
+            if not os.path.exists(scratch_model_dir):
+                os.makedirs(scratch_model_dir)
+    #**********************************************************************
+            model_fn = f'model_{time}.json'
+            model_fn = os.path.join(scratch_model_dir, model_fn)
+            torch.save(model.state_dict(), model_fn)
+    #**********************************************************************
+            model_fn = f'rt_model_{time}.json'
+            model_fn = os.path.join(scratch_model_dir, model_fn)
+            save_rt_model(model, model_fn)
+    #**********************************************************************
+            print(f'Model saved as {model_fn}')
 
 
         if scheduler:
