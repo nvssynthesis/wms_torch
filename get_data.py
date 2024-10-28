@@ -22,10 +22,6 @@ def get_data(audio_files_path, sample_rate, window_size, hop_size, n_fft, power,
     X = torch.cat((mfcc[0].T, pitch.T), dim=1) 
     Y = stft[0].T
     
-    # normalize the data
-    # since it's magnitude spectra, i don't want to change the mean, just the std
-    X = X / X.std()
-    Y = Y / Y.std()
     if require_sequential_data:
         # split the data into sequences
         # in order to be sure that X and Y get subsequenced in accordance with each other,
