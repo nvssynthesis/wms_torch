@@ -28,6 +28,9 @@ from util import set_seed, get_criterion
 
 
 def main():
+    model_comment = ''
+    existing_model_fp = './models/model_2024-10-30_10-11-40.pth'
+
     set_seed(42)
     params = json.load(open('params.json'))
 
@@ -55,14 +58,22 @@ def main():
                          num_layers=params['num_layers'],
                          dropout_prob=params['dropout']).to(device)
     
+    # pre-load saved weights/biases if available
+    if os.path.exists(existing_model_fp):
+        state_dict = torch.load(existing_model_fp)
+        net.load_state_dict(state_dict)
+        print(f'Loaded existing model from {existing_model_fp}')
+    
     criterion = get_criterion(params['criterion'])
+
     if params['optimizer'] == 'Adam':
         optimizer = optim.Adam(net.parameters(), lr=params['learning_rate'], weight_decay=params['weight_decay'], amsgrad=params['amsgrad'],)
     elif params['optimizer'] == 'AdamW':
         optimizer = optim.AdamW(net.parameters(), lr=params['learning_rate'], weight_decay=params['weight_decay'], amsgrad=params['amsgrad'],)
     elif params['optimizer'] == 'SGD':
         optimizer = optim.SGD(net.parameters(), lr=params['learning_rate'], weight_decay=params['weight_decay'], momentum=params['momentum'])
-    scheduler = MultiplicativeLR(optimizer, lr_lambda=lambda epoch: 0.997)
+    
+    scheduler = MultiplicativeLR(optimizer, lr_lambda=lambda epoch: params['lr_decay'])
 
     training_losses, validation_losses, weights = network.train(net, 
                                                        train_loader, 
@@ -72,14 +83,16 @@ def main():
                                                        params['num_epochs'], 
                                                        validation_loader=validation_loader,
                                                        scheduler=scheduler,
-                                                       record_weights_every=1,
+                                                       record_weights_every=params['record_weights_every'],
+                                                       print_every=20,
+                                                       save_scratch_model_every=600,
                                                        scratch_model_dir='./scratch_model_dir',
                                                        num_batches=params['num_batches'])
 
     # name model file with date and time
     time = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
     if True:    # save model in pytorch format
-        model_fn = f'model_{time}.pth'
+        model_fn = f'model_{time}{model_comment}.pth'
         # place in models folder
         model_fn = os.path.join('./models', model_fn)
         last_network_tracker = json.load(open('last_network.json'))
@@ -101,21 +114,25 @@ def main():
         print(f'Model saved as {model_fn}')
 
     if True:
-        plt.figure()
-        plt.plot(training_losses, label='Training Loss')
-        # display value of last training loss at the point
-        # plt.text(len(training_losses)-1, training_losses[-1], f'{training_losses[-1]:.4f}')
-        plt.plot(validation_losses, label='Validation Loss')
-        # display value of last validation loss at the point
-        plt.text(len(validation_losses)-1, validation_losses[-1], f'{validation_losses[-1]:.4f}')
-        plt.ylim([0, np.max(training_losses)+np.max(training_losses)*0.1])
-        plt.xlabel('Epoch')
-        plt.ylabel('Loss')
-        plt.title('Training Loss')
-        plt.savefig(f'plots/losses_{time}.png')
+        def plot_losses(losses, which_str: str):
+            plt.figure()
+            plt.plot(losses, label=f'{which_str} Loss')
+            # display value of last loss at the point
+            plt.text(len(losses)-1, losses[-1], f'{losses[-1]:.4f}')
+            plt.yscale('log')
+            plt.ylim([np.min(losses)-np.min(losses)*0.01, np.max(losses)+np.max(losses)*0.01])
+            plt.xlabel('Epoch')
+            plt.ylabel('Loss')
+            plt.title(f'{which_str} Loss')
+            plt.savefig(f'plots/{which_str}_losses_{time}.png')
+
+        plot_losses(validation_losses, 'Validation')
+        plot_losses(training_losses, 'Training')
         plt.show()
-        if False:
-            animate_weights(weights)
+
+    if params['animate_weights']:
+        weights = [w.cpu() for w in weights]
+        animate_weights(weights)
 
 
 def animate_weights(weights: np.array):

@@ -23,14 +23,18 @@
     "amsgrad": false,
     "amsgrad_comment": "amsgrad applies only to Adam or AdamW optimizers",
 
-    "batch_size": 4096,
-    "learning_rate": 0.01,
+    "batch_size": 32,
+    "learning_rate": 3e-4,
+    "lr_decay": 1.0,
     "weight_decay": 0.0,
     "dropout": 0.0,
-    "num_epochs": 500,
+    "num_epochs": 300,
     "num_batches": 1,
     "num_batches_comment": "if null, use all batches in the dataset. can be set to a small number to treat this as a toy problem.",
     "training_seq_length": 12,
+
+    "animate_weights": false,
+    "record_weights_every": 0,
 
     "do_plotting_on_prediction": true,
     "write_audio": true,

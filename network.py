@@ -6,6 +6,7 @@ from copy import deepcopy
 import os 
 import json
 import datetime
+from time import time
 from save import save_rt_model
 
 class Net(nn.Module):
@@ -30,11 +31,9 @@ class GRUNet(nn.Module):
         self.hidden_size = hidden_size
         self.num_layers = num_layers
         self.gru = nn.GRU(input_size, hidden_size, num_layers, batch_first=True, dropout=dropout_prob)
-        # self.dropout = nn.Dropout(dropout_prob)
         self.dense_layers = nn.Sequential(
             nn.Linear(hidden_size, output_size),
             nn.ReLU(),
-            # nn.Dropout(dropout_prob)
         )
 
     def forward(self, x, h0):
@@ -91,7 +90,9 @@ def train_epoch(model, data_loader: torch.utils.data.DataLoader, loss_fn, optimi
     if validation_loader:
         model.eval()
         with torch.no_grad():
-            for val_inputs, val_targets in validation_loader:
+            for val_batch_idx, (val_inputs, val_targets) in enumerate(validation_loader):
+                if num_batches is not None and val_batch_idx >= num_batches:
+                    break
                 val_targets = val_targets.to(device)
                 for subseq_idx in range(0, inputs.size(1), 3):
                     val_subseq_inputs = val_inputs[:, subseq_idx:, :]
@@ -107,11 +108,14 @@ def train_epoch(model, data_loader: torch.utils.data.DataLoader, loss_fn, optimi
 def train(model, data_loader, loss_fn, optimizer, device, num_epochs, validation_loader=None, scheduler=None, print_every=1, 
           record_weights_every=0,
           scratch_model_dir=None,
+          save_scratch_model_every=15,
           num_batches=None):
     model.train()
     training_losses = np.zeros(num_epochs)
     validation_losses = np.zeros(num_epochs)
     weights = []
+
+        
     for epoch in range(num_epochs):
         training_losses[epoch], validation_losses[epoch] = train_epoch(model, data_loader, loss_fn, optimizer, device, validation_loader, num_batches=num_batches)
 
@@ -122,7 +126,7 @@ def train(model, data_loader, loss_fn, optimizer, device, num_epochs, validation
             if scheduler:
                 print(f'Learning rate: {scheduler.get_last_lr()[0]}')
             for name, param in model.named_parameters():
-                print(f'{name} has norm {torch.norm(param)}')
+                print(f'{name} has norm {torch.linalg.vector_norm(param)}')
             print('-' * 50)
         
         if record_weights_every and epoch % record_weights_every == 0:
@@ -136,17 +140,17 @@ def train(model, data_loader, loss_fn, optimizer, device, num_epochs, validation
         
         #get norm of weights
 
-        if scratch_model_dir and epoch % 15 == 0:      
-            time = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S") 
+        if scratch_model_dir and epoch % save_scratch_model_every == 0:      
+            time_str = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S") 
             # create directory if it doesn't exist
             if not os.path.exists(scratch_model_dir):
                 os.makedirs(scratch_model_dir)
     #**********************************************************************
-            model_fn = f'model_{time}.json'
+            model_fn = f'model_{time_str}.json'
             model_fn = os.path.join(scratch_model_dir, model_fn)
             torch.save(model.state_dict(), model_fn)
     #**********************************************************************
-            model_fn = f'rt_model_{time}.json'
+            model_fn = f'rt_model_{time_str}.json'
             model_fn = os.path.join(scratch_model_dir, model_fn)
             save_rt_model(model, model_fn)
     #**********************************************************************
