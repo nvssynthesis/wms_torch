@@ -39,6 +39,7 @@ def main():
                                                 window_size=params['window_size'], 
                                                 hop_size=params['hop_size'],
                                                 n_fft=params['n_fft'],
+                                                fft_type=params['fft_type'],
                                                 power=params['power'],
                                                 n_mfcc=params['n_mfcc'],
                                                 n_mel=params['n_mel'],

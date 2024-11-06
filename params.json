@@ -5,6 +5,8 @@
     "window_size": 512,
     "hop_size": 100,
     "power": 1.0,
+    "fft_type": "real",
+    "fft_type_comment": "choices: real, complex",
 
     "n_mfcc": 11,
     "n_mel": 40,
@@ -23,12 +25,12 @@
     "amsgrad": false,
     "amsgrad_comment": "amsgrad applies only to Adam or AdamW optimizers",
 
-    "batch_size": 32,
+    "batch_size": 512,
     "learning_rate": 3e-4,
     "lr_decay": 1.0,
     "weight_decay": 0.0,
     "dropout": 0.0,
-    "num_epochs": 300,
+    "num_epochs": 1000,
     "num_batches": 1,
     "num_batches_comment": "if null, use all batches in the dataset. can be set to a small number to treat this as a toy problem.",
     "training_seq_length": 12,

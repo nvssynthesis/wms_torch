@@ -5,7 +5,8 @@ import torchaudio
 import torchaudio.functional as F
 import matplotlib.pyplot as plt
 
-def getFeatures(waveform_array: torch.Tensor, sample_rate, n_fft, window_size, hop_size, 
+def getFeatures(waveform_array: torch.Tensor, 
+                sample_rate, n_fft, window_size, hop_size, 
                 f_low=85, f_high=3500,
                 power=2.0, n_mel=23, n_mfcc=13, 
                 normalize_mfcc=True,
@@ -28,16 +29,6 @@ def getFeatures(waveform_array: torch.Tensor, sample_rate, n_fft, window_size, h
         mfcc = scaler.fit_transform(mfcc.T.squeeze()).T
         mfcc = torch.tensor(mfcc,dtype=torch.float32).unsqueeze(0)
 
-    stf_transform = torchaudio.transforms.Spectrogram(
-        n_fft=n_fft,
-        win_length=window_size,
-        hop_length=hop_size,
-        power=power,
-        center=center
-    )
-    stft: torch.Tensor = stf_transform(waveform_array)
-
-
     # get fundamental frequencies for each window
     median_filter_win_length = 7
     pitch: torch.Tensor = F.detect_pitch_frequency(waveform_array, 
@@ -49,6 +40,16 @@ def getFeatures(waveform_array: torch.Tensor, sample_rate, n_fft, window_size, h
     if pitch_log_scale:
         pitch = torch.clip(pitch, min=f_low)
         pitch = torch.log(pitch - f_low + pitch_log_eps)
+
+    stf_transform = torchaudio.transforms.Spectrogram(
+        n_fft=n_fft,
+        win_length=window_size,
+        hop_length=hop_size,
+        power=power,
+        center=center
+    )
+    stft: torch.Tensor = stf_transform(waveform_array)
+
 
     # get rid of median_filter_win_length//2+1 frames at the beginning and end of other tensors
     frames_to_remove = median_filter_win_length//2+1
