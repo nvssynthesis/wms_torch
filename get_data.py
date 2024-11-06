@@ -18,7 +18,7 @@ def get_data(audio_files_path, sample_rate, window_size, hop_size, n_fft, fft_ty
     stft, pitch, mfcc = features.getFeatures(audio_tensor, sample_rate, n_fft, window_size, hop_size, 
                                 power=power, n_mfcc=n_mfcc, n_mel=n_mel, 
                                 center=True, 
-                                f_low=f_low, f_high=f_high)
+                                f_low=f_low, f_high=f_high, cycles_per_window=cycles_per_window)
     pitch /= f_high
 
     # input is mfcc and pitch
