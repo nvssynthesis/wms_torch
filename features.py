@@ -8,6 +8,7 @@ import matplotlib.pyplot as plt
 def getFeatures(waveform_array: torch.Tensor, 
                 sample_rate, n_fft, window_size, hop_size, 
                 f_low=85, f_high=3500,
+                cycles_per_window=None,
                 power=2.0, n_mel=23, n_mfcc=13, 
                 normalize_mfcc=True,
                 pitch_log_scale=True,
@@ -40,6 +41,9 @@ def getFeatures(waveform_array: torch.Tensor,
     if pitch_log_scale:
         pitch = torch.clip(pitch, min=f_low)
         pitch = torch.log(pitch - f_low + pitch_log_eps)
+
+    if cycles_per_window is not None:
+        raise NotImplementedError('Cycles per window not yet implemented')
 
     stf_transform = torchaudio.transforms.Spectrogram(
         n_fft=n_fft,

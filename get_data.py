@@ -5,6 +5,7 @@ from sklearn.model_selection import train_test_split
 import matplotlib.pyplot as plt
 
 def get_data(audio_files_path, sample_rate, window_size, hop_size, n_fft, fft_type, power, n_mfcc=13, n_mel=23, f_low=85, f_high=4000, 
+             cycles_per_window=None,
              training_seq_length=20,
              require_sequential_data: bool=True,
               random_state=12345):

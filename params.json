@@ -7,6 +7,8 @@
     "power": 1.0,
     "fft_type": "real",
     "fft_type_comment": "choices: real, complex",
+    "cycles_per_window": null,
+    "cycles_per_window_comment": "if null or 0, the predicted spectrum will be unprocessed. If any other natural number, the predicted spectrum will be processed to have that many cycles, based on the detected fundamental frequency.",
 
     "n_mfcc": 11,
     "n_mel": 40,
