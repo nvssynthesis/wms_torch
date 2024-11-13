@@ -4,11 +4,14 @@ import torch
 from sklearn.model_selection import train_test_split
 import matplotlib.pyplot as plt
 
-def get_data(audio_files_path, sample_rate, window_size, hop_size, n_fft, fft_type, power, n_mfcc=13, n_mel=23, f_low=85, f_high=4000, 
+def get_data(audio_files_path, sample_rate, window_size, hop_size, n_fft, fft_type, power, n_mfcc=13, n_mel=23, 
+             f_low=85, f_high=2000, 
+             include_voicedness=True,
+             pitch_detection_method='crepe',
              cycles_per_window=None,
              training_seq_length=20,
              require_sequential_data: bool=True,
-              random_state=12345):
+            random_state=12345):
     audio_data = util.load_audio_files(audio_files_path, sample_rate)
     audio_tensor = util.concatenateWaveforms(audio_data, window_size)
 
@@ -18,13 +21,16 @@ def get_data(audio_files_path, sample_rate, window_size, hop_size, n_fft, fft_ty
     stft, pitch, mfcc = features.getFeatures(audio_tensor, sample_rate, n_fft, window_size, hop_size, 
                                 power=power, n_mfcc=n_mfcc, n_mel=n_mel, 
                                 center=True, 
-                                f_low=f_low, f_high=f_high, cycles_per_window=cycles_per_window)
+                                f_low=f_low, f_high=f_high, 
+                                include_voicedness=include_voicedness,
+                                pitch_detection_method=pitch_detection_method,
+                                cycles_per_window=cycles_per_window)
     pitch /= f_high
 
     # input is mfcc and pitch
     # output is stft
-    X = torch.cat((mfcc[0].T, pitch.T), dim=1) 
-    Y = stft[0].T
+    X = torch.cat((mfcc, pitch.unsqueeze(1)), dim=1) 
+    Y = stft
     
     if require_sequential_data:
         # split the data into sequences

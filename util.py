@@ -5,8 +5,12 @@ import math
 import numpy as np
 import torch.nn as nn
 import torchaudio.transforms as T
+import torchaudio.functional as F
+import librosa
 import random
 from enum import Enum, auto
+from fractions import Fraction
+import matplotlib.pyplot as plt
 
 def set_seed(seed=None):
     if seed is not None:
@@ -127,3 +131,92 @@ def make_conjugate_symmetric(x: torch.Tensor) -> torch.Tensor:
     conj = conj.flip(dims=[0])
     result = torch.cat([x, conj])
     return result
+
+
+def pitch_lin_to_log_scale(pitch: torch.Tensor, f_low: float, pitch_log_eps: float) -> torch.Tensor:
+    assert f_low > 0
+    pitch = torch.clip(pitch, min=f_low)
+    return torch.log(pitch - f_low + pitch_log_eps)
+
+def pitch_log_to_lin_scale(pitch: torch.Tensor, f_low: float, pitch_log_eps: float) -> torch.Tensor:
+    return torch.exp(pitch) + f_low - pitch_log_eps
+
+
+def closest_ratio(sample_rate_1, sample_rate_2, max_denominator=1000):
+    # Calculate the exact ratio as a fraction
+    ratio = sample_rate_1 / sample_rate_2
+    if isinstance(ratio, torch.Tensor):
+        ratio = ratio.item()
+    # Find the closest fraction within the desired tolerance or max denominator
+    closest_fraction = Fraction(ratio).limit_denominator(max_denominator)
+    return closest_fraction.numerator, closest_fraction.denominator
+
+
+
+def get_N_cycle_segments(waveform_array, sample_rate: float, window_size: int, hop_size: int, 
+                   pitch_array,
+                   voiced_probs=None,
+                   cycles_per_window: int=1) -> tuple[list[np.ndarray], np.ndarray]:
+    '''
+    This calculates the N-cycle segments per window, by:
+    -Based on correpsonding fundumanetal frequency, indexing the waveform to get the N-cycle segment
+    -Resampling the audio for each window, such that the window contains exactly N cycles of the waveform at that point, where N is cycles_per_window.
+
+    
+    Args:
+        waveform_array (np.ndarray): Audio waveform, in shape (1, num_samples)
+        sample_rate (float): Sample rate of the audio
+        window_size (int): Window size
+        hop_size (int): Hop size
+        pitch_array (np.ndarray): Pitch array, in Hz, in shape (num_windows,) 
+        voided_probs (np.ndarray): Voiced probability array, in shape (num_windows,)
+        cycles_per_window (int): Number of cycles per window
+
+    Returns:
+        segmented_waveforms (list[np.ndarray]): List of N-cycle segments, of length num_windows, where each np.ndarray is of shape (wavelength_given_f0_and_cycles_per_window,)
+        resampled_waveform (np.ndarray): Resampled N-cycle wavelengths, in shape (num_windows, window_size)
+    '''
+    segmented_waveforms = []
+    resampled_waveform = []
+
+    target_wavelength =  window_size
+    target_freq = sample_rate / target_wavelength
+
+
+    # pre-compute the raw windows
+    raw_frames = librosa.util.frame(waveform_array, frame_length=window_size, hop_length=hop_size)
+
+    if pitch_array.shape[0] == 1:
+        pitch_array = pitch_array.squeeze()
+
+    # resample each window to have N cycles of the waveform. 
+    for i in range(pitch_array.shape[0]):
+        f_0 = pitch_array[i]
+        if voiced_probs is not None:
+            voiced_prob = voiced_probs[i]
+        else:
+            voiced_prob = 1.0
+        if f_0 == 0 or not voiced_prob:
+            resampled_waveform.append(raw_frames[:, i])
+            continue
+
+        # we actually want to only pick out a single wavelength's worth of samples, centered in the middle of the window
+        midpoint = window_size // 2
+        wavelength_given_f0_and_cycles_per_window = (sample_rate / f_0) * cycles_per_window
+        num_samples_in_wavelength = math.ceil(wavelength_given_f0_and_cycles_per_window)
+        start_idx = midpoint - num_samples_in_wavelength // 2
+        end_idx = start_idx + num_samples_in_wavelength
+        x_i = raw_frames[0, start_idx:end_idx, i]
+        segmented_waveforms.append(x_i)
+
+        y_i = librosa.resample(x_i, 
+                               orig_sr = target_freq * cycles_per_window, 
+                               target_sr = f_0,
+                               res_type='soxr_lq', 
+                               scale=True, 
+                               fix=True)
+        assert len(y_i) >= window_size
+        y_i = y_i[:window_size]
+        resampled_waveform.append(y_i)
+
+    return segmented_waveforms, np.stack(resampled_waveform)

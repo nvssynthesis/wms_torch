@@ -45,6 +45,8 @@ def main():
                                                 n_mel=params['n_mel'],
                                                 f_low=params['f_low'],
                                                 f_high=params['f_high'],
+                                                include_voicedness=params['include_voicedness'],
+                                                pitch_detection_method=params['pitch_detection_method'],
                                                 cycles_per_window=params['cycles_per_window'],
                                                 training_seq_length=params['training_seq_length'],)
 
