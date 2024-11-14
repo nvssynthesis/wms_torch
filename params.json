@@ -32,11 +32,11 @@
     "amsgrad_comment": "amsgrad applies only to Adam or AdamW optimizers",
 
     "batch_size": 1024,
-    "learning_rate": 4e-4,
+    "learning_rate": 4e-3,
     "lr_decay": 1.0,
     "weight_decay": 0.0,
     "dropout": 0.0,
-    "num_epochs": 600000,
+    "num_epochs": 75000,
     "num_batches": 1,
     "num_batches_comment": "if null, use all batches in the dataset. can be set to a small number to treat this as a toy problem.",
     "training_seq_length": 12,

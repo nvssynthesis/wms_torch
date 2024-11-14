@@ -44,7 +44,7 @@ def hash_parameters(parameters: dict) -> str:
     return hashlib.md5(parameters_bytes).hexdigest()
 
 
-def hash_and_store_parameters(frame, waveform_array: torch.Tensor) -> str:
+def hash_and_store_parameters(frame, waveform_array: torch.Tensor, verbose=True) -> str:
     # Get the arguments as a dictionary
     args, _, _, values = inspect.getargvalues(frame)
     assert 'waveform_array' in args
@@ -66,22 +66,25 @@ def hash_and_store_parameters(frame, waveform_array: torch.Tensor) -> str:
     
     d = {params_hash: args_dict}
     if not os.path.exists(parameterizations_fp):
+        if verbose:
+            print(f'Writing parameterizations to new file {parameterizations_fp}')
         with open(parameterizations_fp, 'w') as f:
             json.dump(d, f, indent=4)
     else:
+        if verbose:
+            print(f'Updating parameterizations in file {parameterizations_fp}')
         with open(parameterizations_fp, 'r') as f:
             existing_d = json.load(f)
         existing_d.update(d)
         with open(parameterizations_fp, 'w') as f:
             json.dump(existing_d, f, indent=4)
-
     
     # the name of the data file to save will be <params_hash>.h5
     data_fp = os.path.join(subdir_for_waveform, f'{params_hash}.h5')
     return data_fp
 
 
-def save_tensors_to_hdf5(stft, mfcc, pitch, resulting_data_fn, compression='gzip', compression_opts=9):
+def save_tensors_to_hdf5(stft, mfcc, pitch, resulting_data_fn, compression='gzip', compression_opts=9, verbose=True):
     """
     Save tensors to an HDF5 file with compression.
     
@@ -93,11 +96,30 @@ def save_tensors_to_hdf5(stft, mfcc, pitch, resulting_data_fn, compression='gzip
         compression (str): Compression algorithm to use ('gzip', 'lzf', 'szip').
         compression_opts (int): Compression level (0-9 for 'gzip').
     """
+    if verbose:
+        print(f'Saving tensors to {resulting_data_fn}')
     with h5py.File(resulting_data_fn, 'w') as f:
         f.create_dataset('stft', data=stft.numpy(), compression=compression, compression_opts=compression_opts, chunks=True)
         f.create_dataset('mfcc', data=mfcc.numpy(), compression=compression, compression_opts=compression_opts, chunks=True)
         f.create_dataset('pitch', data=pitch.numpy(), compression=compression, compression_opts=compression_opts, chunks=True)
     
+def load_tensors_from_hdf5(resulting_data_fn, verbose=True):
+    """
+    Load tensors from an HDF5 file.
+    
+    Args:
+        resulting_data_fn (str): Path to the HDF5 file.
+    
+    Returns:
+        tuple: Tuple of STFT, MFCC, and pitch tensors.
+    """
+    if verbose:
+        print(f'Loading tensors from {resulting_data_fn}')
+    with h5py.File(resulting_data_fn, 'r') as f:
+        stft = torch.tensor(f['stft'], dtype=torch.float32)
+        mfcc = torch.tensor(f['mfcc'], dtype=torch.float32)
+        pitch = torch.tensor(f['pitch'], dtype=torch.float32)
+    return stft, mfcc, pitch
 
 def set_seed(seed=None):
     if seed is not None:

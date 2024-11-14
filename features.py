@@ -10,7 +10,7 @@ import inspect
 import os
 import h5py
 from util import get_N_cycle_segments, pitch_lin_to_log_scale, pitch_log_to_lin_scale, \
-    hash_tensor, save_tensors_to_hdf5, hash_and_store_parameters
+    hash_tensor, save_tensors_to_hdf5, hash_and_store_parameters, load_tensors_from_hdf5
 
 
 def getFeatures(waveform_array: torch.Tensor, 
@@ -29,10 +29,7 @@ def getFeatures(waveform_array: torch.Tensor,
     
     resulting_data_fn = hash_and_store_parameters(frame, waveform_array)
     if os.path.exists(resulting_data_fn):
-        with h5py.File(resulting_data_fn, 'r') as f:
-            stft = torch.tensor(f['stft'], dtype=torch.float32)
-            mfcc = torch.tensor(f['mfcc'], dtype=torch.float32)
-            pitch = torch.tensor(f['pitch'], dtype=torch.float32)
+        stft, mfcc, pitch = load_tensors_from_hdf5(resulting_data_fn)
         return stft, mfcc, pitch
 
     if pitch_detection_method == 'pyin':
