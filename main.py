@@ -29,7 +29,7 @@ from util import set_seed, get_criterion
 
 def main():
     model_comment = ''
-    existing_model_fp = './models/model_2024-10-30_10-11-40.pth'
+    existing_model_fp = ''
 
     set_seed(42)
     params = json.load(open('params.json'))

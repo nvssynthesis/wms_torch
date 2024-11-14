@@ -11,6 +11,93 @@ import random
 from enum import Enum, auto
 from fractions import Fraction
 import matplotlib.pyplot as plt
+import hashlib
+import json
+import h5py
+import inspect
+
+def hash_tensor(tensor: torch.Tensor) -> str:
+    """
+    Compute a SHA-256 hash of a tensor.
+    
+    Args:
+        tensor (torch.Tensor): Input tensor.
+    
+    Returns:
+        str: SHA-256 hash of the tensor.
+    """
+    tensor_bytes = tensor.numpy().tobytes()
+    return hashlib.md5(tensor_bytes).hexdigest()
+
+
+def hash_parameters(parameters: dict) -> str:
+    """
+    Compute a SHA-256 hash of a dictionary of parameters.
+    
+    Args:
+        parameters (dict): Input dictionary of parameters.
+    
+    Returns:
+        str: SHA-256 hash of the parameters.
+    """
+    parameters_bytes = json.dumps(parameters).encode()
+    return hashlib.md5(parameters_bytes).hexdigest()
+
+
+def hash_and_store_parameters(frame, waveform_array: torch.Tensor) -> str:
+    # Get the arguments as a dictionary
+    args, _, _, values = inspect.getargvalues(frame)
+    assert 'waveform_array' in args
+    args_dict = {arg: values[arg] for arg in args if arg != 'waveform_array'}
+    waveform_hash = hash_tensor(waveform_array)
+    args_dict['waveform_hash'] = waveform_hash
+
+    existing_parameterizations_dir = './parameterizations'
+
+    os.makedirs(existing_parameterizations_dir, exist_ok=True)
+    # each folder in existing_parameterizations_dir will be named after the hash of the waveform_array
+    subdir_for_waveform = os.path.join(existing_parameterizations_dir, waveform_hash)
+
+    os.makedirs(subdir_for_waveform, exist_ok=True)
+    # inside this dir, there shall be a json file that maps hashes of the parameterizations to the parameterizations
+    parameterizations_fp = os.path.join(subdir_for_waveform, 'parameterizations.json')
+    # get parameterizations hash
+    params_hash = hash_parameters(args_dict)
+    
+    d = {params_hash: args_dict}
+    if not os.path.exists(parameterizations_fp):
+        with open(parameterizations_fp, 'w') as f:
+            json.dump(d, f, indent=4)
+    else:
+        with open(parameterizations_fp, 'r') as f:
+            existing_d = json.load(f)
+        existing_d.update(d)
+        with open(parameterizations_fp, 'w') as f:
+            json.dump(existing_d, f, indent=4)
+
+    
+    # the name of the data file to save will be <params_hash>.h5
+    data_fp = os.path.join(subdir_for_waveform, f'{params_hash}.h5')
+    return data_fp
+
+
+def save_tensors_to_hdf5(stft, mfcc, pitch, resulting_data_fn, compression='gzip', compression_opts=9):
+    """
+    Save tensors to an HDF5 file with compression.
+    
+    Args:
+        stft (torch.Tensor): STFT tensor.
+        mfcc (torch.Tensor): MFCC tensor.
+        pitch (torch.Tensor): Pitch tensor.
+        resulting_data_fn (str): Path to the HDF5 file.
+        compression (str): Compression algorithm to use ('gzip', 'lzf', 'szip').
+        compression_opts (int): Compression level (0-9 for 'gzip').
+    """
+    with h5py.File(resulting_data_fn, 'w') as f:
+        f.create_dataset('stft', data=stft.numpy(), compression=compression, compression_opts=compression_opts, chunks=True)
+        f.create_dataset('mfcc', data=mfcc.numpy(), compression=compression, compression_opts=compression_opts, chunks=True)
+        f.create_dataset('pitch', data=pitch.numpy(), compression=compression, compression_opts=compression_opts, chunks=True)
+    
 
 def set_seed(seed=None):
     if seed is not None:
@@ -183,11 +270,20 @@ def get_N_cycle_segments(waveform_array, sample_rate: float, window_size: int, h
     target_freq = sample_rate / target_wavelength
 
 
+    total_frames = 1 + int(waveform_array.size(1) // hop_size)
+    waveform_array = torch.nn.functional.pad(
+        waveform_array,
+        (window_size // 2, window_size // 2))
+    
     # pre-compute the raw windows
     raw_frames = librosa.util.frame(waveform_array, frame_length=window_size, hop_length=hop_size)
 
+    assert raw_frames.shape[-1] == total_frames
+
     if pitch_array.shape[0] == 1:
         pitch_array = pitch_array.squeeze()
+
+    assert pitch_array.shape[0] == raw_frames.shape[-1]
 
     # resample each window to have N cycles of the waveform. 
     for i in range(pitch_array.shape[0]):

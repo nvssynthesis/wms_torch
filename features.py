@@ -6,7 +6,12 @@ import torchaudio
 import torchaudio.functional as F
 import torchcrepe 
 import matplotlib.pyplot as plt
-from util import get_N_cycle_segments, pitch_lin_to_log_scale, pitch_log_to_lin_scale
+import inspect
+import os
+import h5py
+from util import get_N_cycle_segments, pitch_lin_to_log_scale, pitch_log_to_lin_scale, \
+    hash_tensor, save_tensors_to_hdf5, hash_and_store_parameters
+
 
 def getFeatures(waveform_array: torch.Tensor, 
                 sample_rate, n_fft, window_size, hop_size, 
@@ -18,9 +23,17 @@ def getFeatures(waveform_array: torch.Tensor,
                 normalize_mfcc=True,
                 pitch_log_scale=True,
                 pitch_log_eps=0.0001,
-                center=False):
-    if include_voicedness:
-        raise NotImplementedError('include_voicedness not implemented yet')
+                center=False):    
+    # Get the current frame
+    frame = inspect.currentframe()
+    
+    resulting_data_fn = hash_and_store_parameters(frame, waveform_array)
+    if os.path.exists(resulting_data_fn):
+        with h5py.File(resulting_data_fn, 'r') as f:
+            stft = torch.tensor(f['stft'], dtype=torch.float32)
+            mfcc = torch.tensor(f['mfcc'], dtype=torch.float32)
+            pitch = torch.tensor(f['pitch'], dtype=torch.float32)
+        return stft, mfcc, pitch
 
     if pitch_detection_method == 'pyin':
         # pitch detect with librosa using librosa.pyin
@@ -52,7 +65,7 @@ def getFeatures(waveform_array: torch.Tensor,
                                                 model='tiny', decoder = torchcrepe.decode.viterbi, 
                                                 return_periodicity = True, 
                                                 batch_size=256, device='mps',
-                                                pad=False)
+                                                pad=True)
         pitch = pitch.squeeze()
         voicedness = voicedness.squeeze()
 
@@ -66,13 +79,9 @@ def getFeatures(waveform_array: torch.Tensor,
         segmented_waveforms, resampled_wave_matrix = get_N_cycle_segments(waveform_array, sample_rate, window_size, hop_size, 
                                         pitch, voiced_probs=None, 
                                         cycles_per_window=cycles_per_window)
+    else:
+        raise NotImplementedError("Cycles per window is currently required")
 
-    transform = torchaudio.transforms.MFCC(
-        sample_rate=sample_rate,
-        n_mfcc=n_mfcc,
-        melkwargs={"n_fft": n_fft, "win_length": window_size, "hop_length": hop_size, 
-                   "n_mels": n_mel, "center": center, "power": power},
-    )
     # calculate mfcc for each segmented waveform
     mfcc = []
     for wf in segmented_waveforms:
@@ -103,9 +112,17 @@ def getFeatures(waveform_array: torch.Tensor,
     if pitch_log_scale:
         pitch = pitch_lin_to_log_scale(pitch, f_low, pitch_log_eps)
 
+    pitch = pitch.unsqueeze(1)
 
     # check that the shapes' last dimensions are the same
     assert mfcc.shape[0] == stft.shape[0] == pitch.shape[0]
 
+    if include_voicedness:
+        assert voicedness.shape[0] == pitch.shape[0]
+        pitch = torch.cat((pitch, voicedness.unsqueeze(1)), dim=1)
 
-    return stft, pitch, mfcc
+    # save the tensors to an HDF5 file
+    save_tensors_to_hdf5(stft, mfcc, pitch, resulting_data_fn)
+
+        
+    return stft, mfcc, pitch
