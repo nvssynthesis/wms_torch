@@ -61,7 +61,7 @@ def main():
     net = network.GRUNet(X_train.shape[2],
                          hidden_size=params['hidden_size'], 
                          output_size=Y_train.shape[2], 
-                         num_layers=params['num_layers'],
+                         num_layers=params['num_hidden_layers'],
                          dropout_prob=params['dropout']).to(device)
     
     # pre-load saved weights/biases if available

@@ -35,20 +35,25 @@ def main():
     device = torch.device('cpu')
     params = json.load(open('params.json'))
 
-    _, _, X_test, Y_test = get_data(audio_files_path=params['audio_files_path'],
-                                    sample_rate=params['sample_rate'],
-                                    window_size=params['window_size'],
+    _, _, X_test, Y_test = get_data(audio_files_path=params['audio_files_path'], 
+                                    sample_rate=params['sample_rate'], 
+                                    window_size=params['window_size'], 
                                     hop_size=params['hop_size'],
                                     n_fft=params['n_fft'],
+                                    fft_type=params['fft_type'],
                                     power=params['power'],
                                     n_mfcc=params['n_mfcc'],
+                                    mfcc_dim_reduction=params['mfcc_dim_reduction'],
                                     n_mel=params['n_mel'],
                                     f_low=params['f_low'],
                                     f_high=params['f_high'],
-                                    training_seq_length=params['training_seq_length'])
+                                    include_voicedness=params['include_voicedness'],
+                                    pitch_detection_method=params['pitch_detection_method'],
+                                    cycles_per_window=params['cycles_per_window'],
+                                    training_seq_length=params['training_seq_length'],)
     
     # network = Net(X_test.shape[1], Y_test.shape[1]).to(device)
-    network = GRUNet(X_test.shape[2], hidden_size=params['hidden_size'], output_size=Y_test.shape[2], num_layers=params['num_layers']).to(device)
+    network = GRUNet(X_test.shape[2], hidden_size=params['hidden_size'], output_size=Y_test.shape[2], num_layers=params['num_hidden_layers']).to(device)
     last_network = json.load(open('last_network.json'))['last_network']
     state_dict = torch.load(last_network)
     network.load_state_dict(state_dict)

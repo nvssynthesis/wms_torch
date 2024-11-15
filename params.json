@@ -10,7 +10,7 @@
     "cycles_per_window": 2,
     "cycles_per_window_comment": "if null or 0, the predicted spectrum will be unprocessed. If any other natural number, the predicted spectrum will be processed to have that many cycles, based on the detected fundamental frequency.",
 
-    "n_mfcc": 6,
+    "n_mfcc": 11,
     "n_mel": 40,
     "f_low": 85,
     "f_high": 3000,
@@ -22,9 +22,9 @@
     "include_voicedness_comment": "determines whether to include voicedness (how pitchy the sound is) as a feature. Not supported for yin.",
 
     "model_type": "GRU",
-    "num_layers": 1,
-    "hidden_layers_comment": "this is really the number of hidden GRU layers.",
-    "hidden_size": 128,
+    "num_hidden_layers": 1,
+    "num_hidden_layers_comment": "this is really the number of hidden GRU layers.",
+    "hidden_size": 132,
 
     "criterion": "MSE", 
     "criterion_comment": "choices: MSE, WeightedMSE (which is weighs the spectral differences in favor of the lower frequencies)",
@@ -34,12 +34,12 @@
     "amsgrad_comment": "amsgrad applies only to Adam or AdamW optimizers",
 
     "batch_size": 1024,
-    "learning_rate": 7e-4,
+    "learning_rate": 5e-4,
     "lr_decay": 1.0,
     "weight_decay": 0.0,
     "dropout": 0.0,
-    "num_epochs": 2000, 
-    "num_batches": 1,
+    "num_epochs": 10000, 
+    "num_batches": null,
     "num_batches_comment": "if null, use all batches in the dataset. can be set to a small number to treat this as a toy problem.",
     "training_seq_length": 12,
 
