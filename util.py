@@ -173,7 +173,7 @@ def load_audio_files(audio_path, desired_sample_rate) -> np.array:
         for f in audio_files:
             wave, fs = torchaudio.load(f, normalize=True)
             audio_data.append(process_wave(wave, fs, desired_sample_rate))
-    elif os.path.isfile(audio_path)
+    elif os.path.isfile(audio_path):
         wave, fs = torchaudio.load(audio_path, normalize=True)
         audio_data = [process_wave(wave, fs, desired_sample_rate)]
     else:
