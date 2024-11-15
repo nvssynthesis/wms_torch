@@ -1,3 +1,4 @@
+annoy==1.17.3
 audioread==3.0.1
 certifi==2024.2.2
 cffi==1.16.0
@@ -8,6 +9,7 @@ decorator==5.1.1
 filelock==3.13.4
 fonttools==4.51.0
 fsspec==2024.3.1
+h5py==3.12.1
 idna==3.7
 Jinja2==3.1.3
 joblib==1.4.0
@@ -23,6 +25,7 @@ networkx==3.3
 numba==0.59.1
 numpy==1.26.4
 packaging==24.0
+pacmap==0.7.5
 pandas==2.2.2
 pillow==10.3.0
 platformdirs==4.2.1
@@ -32,6 +35,7 @@ pyparsing==3.1.2
 python-dateutil==2.9.0.post0
 pytz==2024.1
 requests==2.31.0
+resampy==0.4.3
 scikit-learn==1.4.2
 scipy==1.13.0
 seaborn==0.13.2
@@ -43,7 +47,9 @@ sympy==1.12
 threadpoolctl==3.4.0
 torch==2.2.2
 torchaudio==2.2.2
+torchcrepe==0.0.23
 torchvision==0.17.2
+tqdm==4.67.0
 typing_extensions==4.11.0
 tzdata==2024.1
 urllib3==2.2.1
