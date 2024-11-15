@@ -26,6 +26,7 @@ from torch.optim.lr_scheduler import ExponentialLR, StepLR, CyclicLR, Multiplica
 import matplotlib.animation as animation
 from util import set_seed, get_criterion
 
+import pacmap
 
 def main():
     model_comment = ''
@@ -42,6 +43,7 @@ def main():
                                                 fft_type=params['fft_type'],
                                                 power=params['power'],
                                                 n_mfcc=params['n_mfcc'],
+                                                mfcc_dim_reduction=params['mfcc_dim_reduction'],
                                                 n_mel=params['n_mel'],
                                                 f_low=params['f_low'],
                                                 f_high=params['f_high'],

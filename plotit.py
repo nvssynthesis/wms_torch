@@ -2,6 +2,26 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 import numpy as np
 
+
+def plot_pacmap_embedding(X, embedding):
+    emb_params = embedding.get_params()
+    n_components = emb_params['n_components']
+    n_neighbors = emb_params['n_neighbors']
+    MN_ratio = emb_params['MN_ratio']
+    FP_ratio = emb_params['FP_ratio']
+    distance = emb_params['distance']
+    # 3d scatter plot
+    fig = plt.figure()
+    ax = fig.add_subplot(111, projection='3d')
+    # scatter using very small dots
+    ax.scatter(X[:, 0], X[:, 1], X[:, 2], s=0.1)
+    # title
+    plt.title('PaCMAP Embedding')
+    # add miniature subtitle
+    plt.suptitle(f'PaCMAP with {n_components} components, {n_neighbors} neighbors, MN ratio {MN_ratio}, FP ratio {FP_ratio} distance {distance}', fontsize=8)
+    plt.show()
+
+
 def plot_prediction(target, predicted, target_wave, predicted_wave, sample_idx, subsequence_idx):
     plt.figure()
     plt.clf()  
