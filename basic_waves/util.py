@@ -1,11 +1,7 @@
 import numpy as np 
-import math 
-# frequency estimator
 from librosa import pyin
 import matplotlib.pyplot as plt
-import json
 from typing import Optional
-import soundfile 
 
 def sine(t, f_0: float, f_s: Optional[float]=None):
     if f_s is not None:
@@ -154,23 +150,3 @@ def plot_signal_and_freq(t, sig, sample_rate, f_low, f_high, win_size, hop_size)
     fig.tight_layout()  # Adjust layout to make room for both y-axes
     plt.title('Signal and Estimated Frequency')
     plt.show()
-
-def main(plot=False):
-    params = json.load(open('params.json'))
-
-    fs = params['sample_rate']
-    dur_in_seconds = 100.0
-    f_low = params['f_low']
-    f_high = params['f_high']
-    t = np.linspace(0.0, dur_in_seconds, math.ceil(fs * dur_in_seconds))
-    sig = 0.707 * generate_wave(t, 
-                        f_0=generate_exponential_f0(t, f_low, f_high, change_prob=1e-4),
-                        f_s=fs,
-                        prob_of_wave_change=3e-4)
-    # write signal to wav file
-    soundfile.write('./basic_waves/basic_waves.wav', sig, fs, subtype='float')
-    if plot:
-        plot_signal_and_freq(t, sig, fs, f_low, f_high, params['window_size'], params['hop_size'])
-
-if __name__ == '__main__':
-    main()
