@@ -10,3 +10,4 @@ __pycache__/
 rtneural_models/
 scratch_model_dir/
 parameterizations/
+last_network.json
