@@ -16,7 +16,7 @@ def main(plot=False):
     params = json.load(open('params.json'))
 
     fs = params['sample_rate']
-    dur_in_seconds = 100.0
+    dur_in_seconds = 1000.0
     f_low = params['f_low']
     f_high = params['f_high']
     t = np.linspace(0.0, dur_in_seconds, math.ceil(fs * dur_in_seconds))

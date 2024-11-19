@@ -101,9 +101,12 @@ def main():
         model_fn = f'model_{time}{model_comment}.pth'
         # place in models folder
         model_fn = os.path.join('./models', model_fn)
-        last_network_tracker = json.load(open('last_network.json'))
-        last_network_tracker['last_network'] = model_fn
-        json.dump(last_network_tracker, open('last_network.json', 'w'))
+        if not os.path.exists('last_network.json'):
+            json.dump({'last_network': model_fn}, open('last_network.json', 'w'))
+        else:
+            last_network_tracker = json.load(open('last_network.json'))
+            last_network_tracker['last_network'] = model_fn
+            json.dump(last_network_tracker, open('last_network.json', 'w'))
         torch.save(net.state_dict(), model_fn)
         print(f'Model saved as {model_fn}')
 
@@ -111,9 +114,12 @@ def main():
         model_fn = f'rt_model_{time}.json'
         # place in models folder
         model_fn = os.path.join('./rtneural_models', model_fn)
-        last_network_tracker = json.load(open('last_network.json'))
-        last_network_tracker['last_rt_network'] = model_fn
-        json.dump(last_network_tracker, open('last_network.json', 'w'))
+        if not os.path.exists('last_network.json'):
+            json.dump({'last_rt_network': model_fn}, open('last_network.json', 'w'))
+        else:
+            last_network_tracker = json.load(open('last_network.json'))
+            last_network_tracker['last_rt_network'] = model_fn
+            json.dump(last_network_tracker, open('last_network.json', 'w'))
 #**********************************************************************
         save_rt_model(net, model_fn)
 #**********************************************************************
