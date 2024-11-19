@@ -37,6 +37,10 @@ def get_data(audio_files_path, sample_rate, window_size, hop_size, n_fft, fft_ty
 
     if fft_type == 'complex':
         raise NotImplementedError('Complex FFT training and inference not yet implemented')
+    elif fft_type == 'real':
+        pass
+    else:
+        raise ValueError(f'Unrecognized fft_type: {fft_type}')
     
     stft, mfcc, pitch = features.getFeatures(audio_tensor, sample_rate, n_fft, window_size, hop_size, 
                                 power=power, n_mfcc=n_mfcc, n_mel=n_mel, 

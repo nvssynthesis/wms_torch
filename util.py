@@ -8,12 +8,9 @@ import torchaudio.transforms as T
 import torchaudio.functional as F
 import librosa
 import random
-from enum import Enum, auto
 from fractions import Fraction
-import matplotlib.pyplot as plt
 import hashlib
 import json
-import h5py
 import inspect
 
 def hash_tensor(tensor: torch.Tensor) -> str:
@@ -79,47 +76,26 @@ def hash_and_store_parameters(frame, waveform_array: torch.Tensor, verbose=True)
         with open(parameterizations_fp, 'w') as f:
             json.dump(existing_d, f, indent=4)
     
-    # the name of the data file to save will be <params_hash>.h5
-    data_fp = os.path.join(subdir_for_waveform, f'{params_hash}.h5')
+    # the name of the data file to save will be <params_hash>.pt
+    data_fp = os.path.join(subdir_for_waveform, f'{params_hash}.pt')
     return data_fp
 
-
-def save_tensors_to_hdf5(stft, mfcc, pitch, resulting_data_fn, compression='gzip', compression_opts=9, verbose=True):
-    """
-    Save tensors to an HDF5 file with compression.
-    
-    Args:
-        stft (torch.Tensor): STFT tensor.
-        mfcc (torch.Tensor): MFCC tensor.
-        pitch (torch.Tensor): Pitch tensor.
-        resulting_data_fn (str): Path to the HDF5 file.
-        compression (str): Compression algorithm to use ('gzip', 'lzf', 'szip').
-        compression_opts (int): Compression level (0-9 for 'gzip').
-    """
+def save_tensors_to_pt(stft: torch.Tensor, mfcc: torch.Tensor, pitch: torch.Tensor, resulting_data_fn, verbose=True) -> None:
+    '''
+    Save the tensors to a .pt file.
+    '''
     if verbose:
         print(f'Saving tensors to {resulting_data_fn}')
-    with h5py.File(resulting_data_fn, 'w') as f:
-        f.create_dataset('stft', data=stft.numpy(), compression=compression, compression_opts=compression_opts, chunks=True)
-        f.create_dataset('mfcc', data=mfcc.numpy(), compression=compression, compression_opts=compression_opts, chunks=True)
-        f.create_dataset('pitch', data=pitch.numpy(), compression=compression, compression_opts=compression_opts, chunks=True)
-    
-def load_tensors_from_hdf5(resulting_data_fn, verbose=True):
-    """
-    Load tensors from an HDF5 file.
-    
-    Args:
-        resulting_data_fn (str): Path to the HDF5 file.
-    
-    Returns:
-        tuple: Tuple of STFT, MFCC, and pitch tensors.
-    """
+    torch.save({'stft': stft, 'mfcc': mfcc, 'pitch': pitch}, resulting_data_fn)
+
+def load_tensors_from_pt(resulting_data_fn, verbose=True) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+    '''
+    Load the tensors from a .pt file.
+    '''
     if verbose:
         print(f'Loading tensors from {resulting_data_fn}')
-    with h5py.File(resulting_data_fn, 'r') as f:
-        stft = torch.tensor(f['stft'], dtype=torch.float32)
-        mfcc = torch.tensor(f['mfcc'], dtype=torch.float32)
-        pitch = torch.tensor(f['pitch'], dtype=torch.float32)
-    return stft, mfcc, pitch
+    data = torch.load(resulting_data_fn)
+    return data['stft'], data['mfcc'], data['pitch']
 
 def set_seed(seed=None):
     if seed is not None:

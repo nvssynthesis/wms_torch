@@ -8,9 +8,8 @@ import torchcrepe
 import matplotlib.pyplot as plt
 import inspect
 import os
-import h5py
-from util import get_N_cycle_segments, pitch_lin_to_log_scale, pitch_log_to_lin_scale, \
-    hash_tensor, save_tensors_to_hdf5, hash_and_store_parameters, load_tensors_from_hdf5
+from util import get_N_cycle_segments, pitch_lin_to_log_scale, \
+    hash_and_store_parameters, save_tensors_to_pt, load_tensors_from_pt
 
 
 def getFeatures(waveform_array: torch.Tensor, 
@@ -29,7 +28,7 @@ def getFeatures(waveform_array: torch.Tensor,
     
     resulting_data_fn = hash_and_store_parameters(frame, waveform_array)
     if os.path.exists(resulting_data_fn):
-        stft, mfcc, pitch = load_tensors_from_hdf5(resulting_data_fn)
+        stft, mfcc, pitch = load_tensors_from_pt(resulting_data_fn)
         return stft, mfcc, pitch
 
     if pitch_detection_method == 'pyin':
@@ -118,8 +117,7 @@ def getFeatures(waveform_array: torch.Tensor,
         assert voicedness.shape[0] == pitch.shape[0]
         pitch = torch.cat((pitch, voicedness.unsqueeze(1)), dim=1)
 
-    # save the tensors to an HDF5 file
-    save_tensors_to_hdf5(stft, mfcc, pitch, resulting_data_fn)
+    save_tensors_to_pt(stft, mfcc, pitch, resulting_data_fn)
 
         
     return stft, mfcc, pitch
