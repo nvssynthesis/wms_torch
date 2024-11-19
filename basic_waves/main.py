@@ -5,9 +5,11 @@ from librosa import pyin
 import matplotlib.pyplot as plt
 import json
 from typing import Optional
+import soundfile 
 
-
-def sine(t, f_0: float):
+def sine(t, f_0: float, f_s: Optional[float]=None):
+    if f_s is not None:
+        assert np.all(f_0 <= f_s / 2), 'Frequency must be less than Nyquist frequency.'
     return np.sin(2 * np.pi * f_0 * t)
 
 def tri(t, f_0: float, f_s: float):
@@ -46,14 +48,17 @@ def sawtooth(t, f_0: float, f_s: float):
     # 2/pi * sum_{k=1}^N (-1)^k * sin(2pi * k * f_0 * t) / k
     sawtooth_wave = 0
     k=1
+
     while True:
         harmonic = f_0 * k
-        valid_harmonic = np.where(harmonic <= f_s / 2, harmonic, np.nan)        # only consider harmonics that are less than Nyquist
-        sawtooth_wave += np.nan_to_num((-1)**k * sine(t, valid_harmonic) / k)   # add the harmonic to the wave, if it is valid
+        valid_harmonic = np.where(harmonic <= (f_s / 2), harmonic, np.nan)        # only consider harmonics that are less than Nyquist
+
+        sawtooth_wave += np.nan_to_num((-1)**k * sine(t, valid_harmonic) / k, f_s)   # add the harmonic to the wave, if it is valid
         k += 1
         if np.all(harmonic > f_s / 2):
             break
     return 2 / np.pi * sawtooth_wave
+
 
 def generate_exponential_f0(t, f_min, f_max, change_prob):
     """
@@ -83,14 +88,40 @@ def generate_exponential_f0(t, f_min, f_max, change_prob):
     
     return f_0
 
-def main(sample_rate, f_low, f_high, 
-         win_size, hop_size,
-         duration_in_seconds=0.2,
-         prob_of_freq_change=1e-3):
-    t = np.linspace(0, duration_in_seconds, math.ceil(sample_rate * duration_in_seconds))
-    sig = sawtooth(t, 
-              f_0=generate_exponential_f0(t, f_low, f_high, prob_of_freq_change),
-              f_s=sample_rate) 
+
+def generate_wave(t, f_0, f_s, prob_of_wave_change):
+    '''
+    Generate a waveform with prob_of_wave_change probability of changing the waveform.
+    '''
+    # Initialize the signal
+    sig = np.zeros_like(t)
+
+    # Set the initial waveform
+    func_map = {
+        0: sine,
+        1: tri,
+        2: square,
+        3: sawtooth
+    }
+
+    # Precompute the function indices
+    func_indices = np.zeros_like(t, dtype=int)
+    current_func = np.random.choice(list(func_map.keys()))
+    for i in range(len(t)):
+        if np.random.rand() < prob_of_wave_change:
+            current_func = np.random.choice(list(func_map.keys()))
+        func_indices[i] = current_func
+
+    # Generate the waveform by segments
+    unique_funcs = np.unique(func_indices)
+    for func_index in unique_funcs:
+        mask = (func_indices == func_index)
+        sig[mask] = func_map[func_index](t[mask], f_0[mask], f_s)
+
+    return sig
+
+
+def plot_signal_and_freq(t, sig, sample_rate, f_low, f_high, win_size, hop_size):
     # detect the frequency
     f0, voiced_flag, voiced_probs = pyin(sig, fmin=f_low, fmax=f_high, sr=sample_rate,
                                          win_length=win_size, hop_length=hop_size,
@@ -124,10 +155,22 @@ def main(sample_rate, f_low, f_high,
     plt.title('Signal and Estimated Frequency')
     plt.show()
 
-if __name__ == '__main__':
+def main(plot=False):
     params = json.load(open('params.json'))
-    main(sample_rate=params['sample_rate'], 
-         f_low=params['f_low'], 
-         f_high=params['f_high'],
-         win_size=params['window_size'],
-         hop_size=params['hop_size'],)
+
+    fs = params['sample_rate']
+    dur_in_seconds = 100.0
+    f_low = params['f_low']
+    f_high = params['f_high']
+    t = np.linspace(0.0, dur_in_seconds, math.ceil(fs * dur_in_seconds))
+    sig = 0.707 * generate_wave(t, 
+                        f_0=generate_exponential_f0(t, f_low, f_high, change_prob=1e-4),
+                        f_s=fs,
+                        prob_of_wave_change=3e-4)
+    # write signal to wav file
+    soundfile.write('./basic_waves/basic_waves.wav', sig, fs, subtype='float')
+    if plot:
+        plot_signal_and_freq(t, sig, fs, f_low, f_high, params['window_size'], params['hop_size'])
+
+if __name__ == '__main__':
+    main()

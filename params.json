@@ -12,8 +12,8 @@
 
     "n_mfcc": 11,
     "n_mel": 40,
-    "f_low": 85,
-    "f_high": 3000,
+    "f_low": 46,
+    "f_high": 1600,
     "mfcc_dim_reduction": "pacmap",
     "mfcc_dim_reduction_comment": "choices: pacmap",
     "pitch_detection_method": "crepe",
