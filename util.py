@@ -107,6 +107,9 @@ def set_seed(seed=None):
         torch.backends.cudnn.deterministic = True
         torch.backends.cudnn.benchmark = False
 
+def get_encoded_layer_size(params: dict) -> int:
+    return params['n_mfcc'] + (1 if params['include_voicedness'] else 0) + 1
+
 class WeightedMSELoss(nn.Module):
     def __init__(self):
         super(WeightedMSELoss, self).__init__()
@@ -303,17 +306,41 @@ def get_N_cycle_segments(waveform_array, sample_rate: float, window_size: int, h
         num_samples_in_wavelength = math.ceil(wavelength_given_f0_and_cycles_per_window)
         start_idx = midpoint - num_samples_in_wavelength // 2
         end_idx = start_idx + num_samples_in_wavelength
-        x_i = raw_frames[0, start_idx:end_idx, i]
-        segmented_waveforms.append(x_i)
+
+        segmented_waveforms.append(raw_frames[0, start_idx:end_idx, i])
+
+        '''
+        There is an issue with resampling, where if the tails are nonzero, artifacts are introduced by assuming that beyond the tails, the signal is zero.
+        To mitigate this, we will pad the signal with a linear fade in and fade out, to zero, over a length of 16 samples, then resample,
+        and then after resampling, we will crop the signal to the target window size.
+        '''
+        fade_pad_len = 16
+        fade_pad_len = min(fade_pad_len, raw_frames.shape[1] - fade_pad_len*2)
+        padded_start_idx = start_idx - fade_pad_len
+        padded_end_idx = end_idx + fade_pad_len 
+
+
+        x_i = np.concatenate((raw_frames[0, padded_start_idx:start_idx, i] * np.linspace(0, 1, fade_pad_len),
+                              raw_frames[0, start_idx:end_idx, i], 
+                              raw_frames[0, end_idx:padded_end_idx, i] * np.linspace(1, 0, fade_pad_len)))
+
+
 
         y_i = librosa.resample(x_i, 
                                orig_sr = target_freq * cycles_per_window, 
                                target_sr = f_0,
-                               res_type='soxr_lq', 
+                               res_type='soxr_hq',
                                scale=True, 
                                fix=True)
         assert len(y_i) >= window_size
-        y_i = y_i[:window_size]
+
+
+        d = len(y_i) - window_size
+        d1 = d // 2
+        d2 = d - d1
+
+        y_i = y_i[d1:-d2]
+        assert len(y_i) == window_size
         resampled_waveform.append(y_i)
 
     return segmented_waveforms, np.stack(resampled_waveform)

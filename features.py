@@ -81,6 +81,9 @@ def getFeatures(waveform_array: torch.Tensor,
     # calculate mfcc for each segmented waveform
     mfcc = []
     for wf in segmented_waveforms:
+        # window the waveform with hanning window
+        wf = wf * np.hanning(wf.shape[0])
+
         # pad wf if necessary
         if wf.shape[0] < n_fft:
             wf = librosa.util.fix_length(wf, size=n_fft, mode='wrap')   # may want to use 'constant' instead of 'wrap'
@@ -96,7 +99,10 @@ def getFeatures(waveform_array: torch.Tensor,
     # calculate fft for each resampled waveform
     stft = []
     for i in range(len(resampled_wave_matrix)):
-        stft.append(np.abs(np.fft.rfft(resampled_wave_matrix[i])))
+        # hanning window the waveform
+        x = resampled_wave_matrix[i]
+        y = x * np.hanning(x.shape[0])
+        stft.append(np.abs(np.fft.rfft(y, n=n_fft)))
     stft = torch.tensor(stft, dtype=torch.float32)
 
     if normalize_mfcc:

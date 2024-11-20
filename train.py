@@ -24,7 +24,7 @@ import os
 from save import save_rt_model
 from torch.optim.lr_scheduler import ExponentialLR, StepLR, CyclicLR, MultiplicativeLR, MultiStepLR 
 import matplotlib.animation as animation
-from util import set_seed, get_criterion
+from util import set_seed, get_criterion, get_encoded_layer_size
 
 import pacmap
 
@@ -34,6 +34,8 @@ def main():
 
     set_seed(42)
     params = json.load(open('params.json'))
+
+    assert params['n_fft'] >= params['window_size'], 'n_fft must be greater than or equal to window_size'
 
     X_train, Y_train, X_test, Y_test = get_data(audio_files_path=params['audio_files_path'], 
                                                 sample_rate=params['sample_rate'], 
@@ -58,10 +60,11 @@ def main():
     train_loader: torch.utils.data.DataLoader = torch.utils.data.DataLoader(list(zip(X_train, Y_train)), batch_size=params['batch_size'], shuffle=True)
     validation_loader: torch.utils.data.DataLoader = torch.utils.data.DataLoader(list(zip(X_test, Y_test)), batch_size=params['batch_size'], shuffle=True)
 
+
     net = network.GRUNet(X_train.shape[2],
                          hidden_size=params['hidden_size'], 
+                         encoded_size=get_encoded_layer_size(params),
                          output_size=Y_train.shape[2], 
-                         num_layers=params['num_hidden_layers'],
                          dropout_prob=params['dropout']).to(device)
     
     # pre-load saved weights/biases if available
@@ -87,6 +90,7 @@ def main():
                                                        optimizer, 
                                                        device, 
                                                        params['num_epochs'], 
+
                                                        validation_loader=validation_loader,
                                                        scheduler=scheduler,
                                                        record_weights_every=params['record_weights_every'],

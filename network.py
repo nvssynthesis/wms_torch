@@ -26,19 +26,24 @@ class Net(nn.Module):
         return y 
 
 class GRUNet(nn.Module):
-    def __init__(self, input_size, hidden_size, output_size, num_layers: int = 1, dropout_prob: float = 0.1):
+    def __init__(self, input_size, hidden_size, encoded_size, output_size, dropout_prob: float = 0.1):
         super(GRUNet, self).__init__()
         self.hidden_size = hidden_size
-        self.num_layers = num_layers
-        self.gru = nn.GRU(input_size, hidden_size, num_layers, batch_first=True, dropout=dropout_prob)
+        self.input_encoder = nn.Sequential(
+            nn.Linear(input_size, encoded_size),
+            nn.ReLU(),
+        )
+        self.gru = nn.GRU(encoded_size, hidden_size, 1, batch_first=True, dropout=dropout_prob)
         self.dense_layers = nn.Sequential(
             nn.Linear(hidden_size, output_size),
             nn.ReLU(),
         )
 
     def forward(self, x, h0):
+        # forward pass through input encoder
+        out = self.input_encoder(x)
         # Forward pass through GRU
-        out, hn = self.gru(x, h0)
+        out, hn = self.gru(out, h0)
 
         # Use the hidden state of the last time step
         out = out[:, -1, :]
@@ -49,9 +54,9 @@ class GRUNet(nn.Module):
 
     def init_hidden(self, batch_size, init_method='zeros'):
         if init_method == 'zeros':
-            return torch.zeros(self.num_layers, batch_size, self.hidden_size)
+            return torch.zeros(1, batch_size, self.hidden_size)
         elif init_method == 'normal':
-            return torch.randn(self.num_layers, batch_size, self.hidden_size)
+            return torch.randn(1, batch_size, self.hidden_size)
         else:
             raise ValueError('Invalid init method')
     
