@@ -90,6 +90,8 @@ def main():
                 # write the target and predicted spectra to .txt file
                 target_fn = make_name(f'target_spectrum_{idx}', 'txt', 'written_spectra')
                 predicted_fn = make_name(f'predicted_spectrum_{idx}', 'txt', 'written_spectra')
+                if not os.path.exists('written_spectra'):
+                    os.makedirs('written_spectra')
                 np.savetxt(target_fn, target)
                 np.savetxt(predicted_fn, predicted)
 
