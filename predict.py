@@ -5,7 +5,7 @@ from plotit import plot_prediction
 import json
 import numpy as np 
 from scipy.io.wavfile import write
-from util import get_encoded_layer_size
+from util import get_encoded_layer_size, get_torch_device
 import datetime
 import os 
 import matplotlib.pyplot as plt
@@ -34,7 +34,7 @@ def write_audio(waveform, out_fs: int,  base_name: str, num_reps=1, dir: str = '
 
 def main():
     indices = np.arange(0, 15)
-    device = torch.device('mps')
+    device = get_torch_device()
     params = json.load(open('params.json'))
 
     X_train, Y_train, X_test, Y_test = get_data(audio_files_path=params['audio_files_path'], 

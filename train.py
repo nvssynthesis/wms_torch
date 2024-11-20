@@ -24,7 +24,7 @@ import os
 from save import save_rt_model
 from torch.optim.lr_scheduler import ExponentialLR, StepLR, CyclicLR, MultiplicativeLR, MultiStepLR 
 import matplotlib.animation as animation
-from util import set_seed, get_criterion, get_encoded_layer_size
+from util import set_seed, get_criterion, get_encoded_layer_size, get_torch_device
 
 import pacmap
 
@@ -54,7 +54,7 @@ def main():
                                                 cycles_per_window=params['cycles_per_window'],
                                                 training_seq_length=params['training_seq_length'],)
 
-    device = torch.device('mps')
+    device = get_torch_device()
     print(f'Using device: {device}')
 
     train_loader: torch.utils.data.DataLoader = torch.utils.data.DataLoader(list(zip(X_train, Y_train)), batch_size=params['batch_size'], shuffle=True)

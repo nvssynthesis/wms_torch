@@ -110,6 +110,25 @@ def set_seed(seed=None):
 def get_encoded_layer_size(params: dict) -> int:
     return params['n_mfcc'] + (1 if params['include_voicedness'] else 0) + 1
 
+
+def get_torch_device(verbose: bool=True) -> torch.device:
+    # priority order: 
+    # 1. CUDA if available
+    # 2. MPS if available
+    # 3. CPU
+    if torch.cuda.is_available():
+        if verbose:
+            print('Using CUDA')
+        return torch.device('cuda')
+    elif torch.backends.mps.is_available():
+        if verbose:
+            print('Using MPS')
+        return torch.device('mps')
+    else:
+        if verbose:
+            print('Using CPU')
+        return torch.device('cpu')
+
 class WeightedMSELoss(nn.Module):
     def __init__(self):
         super(WeightedMSELoss, self).__init__()
