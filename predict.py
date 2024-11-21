@@ -1,5 +1,5 @@
 import torch
-from network import Net, GRUNet
+from network import GRUNet
 from get_data import get_data
 from plotit import plot_prediction
 import json
@@ -70,10 +70,10 @@ def main():
 
         # target = target[-1, :]
         for i in range(1, len(input)):
-            curr_inp = input[:i+1]
+            curr_inp = input[:i]
             predicted = predict(network, curr_inp)
             inv_pow = 1 / params['power']
-            curr_target = target[i]
+            curr_target = target[i-1]
             curr_target = (curr_target**inv_pow).to('cpu')
             predicted = (predicted**inv_pow).to('cpu')
 
@@ -82,9 +82,9 @@ def main():
             predicted_wave = torch.fft.irfft(predicted)
             
             curr_target = curr_target.T
-            predicted = predicted.T
+            predicted = predicted[:,-1,:].T
             curr_target_wave = curr_target_wave.T
-            predicted_wave = predicted_wave.T
+            predicted_wave = predicted_wave[:,-1,:].T
 
             if params['do_plotting_on_prediction']:
                 plot_prediction(curr_target, predicted, curr_target_wave, predicted_wave, idx, i)
