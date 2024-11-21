@@ -41,6 +41,8 @@
     "num_batches_comment": "if null, use all batches in the dataset. can be set to a small number to treat this as a toy problem.",
     "training_seq_length": 3,
 
+    "save_scratch_model_every": 600,
+
     "animate_weights": false,
     "record_weights_every": 0,
 

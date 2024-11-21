@@ -8,29 +8,49 @@ steps:
 5. train a neural network to map timbral features to spectral features
 6. save the model
 '''
+import os 
+import datetime
+import json 
 import torch.utils
 import torch.utils.data
 import torch.utils.data.dataloader
-import matplotlib.pyplot as plt
 import torch
-import torch.nn as nn
 import torch.optim as optim
+from torch.optim.lr_scheduler import ExponentialLR, StepLR, CyclicLR, MultiplicativeLR, MultiStepLR 
+import numpy as np
+import matplotlib.pyplot as plt
+import matplotlib.animation as animation
 import network
 from get_data import get_data
-import numpy as np
-import json 
-import datetime
-import os 
 from save import save_rt_model
-from torch.optim.lr_scheduler import ExponentialLR, StepLR, CyclicLR, MultiplicativeLR, MultiStepLR 
-import matplotlib.animation as animation
 from util import set_seed, get_criterion, get_encoded_layer_size, get_torch_device
 
-import pacmap
 
-def main():
-    model_comment = ''
-    existing_model_fp = ''
+def main(model_comment = None, existing_model_fp = None) -> None:
+    '''
+    Trains a neural network to map timbral features to spectral features.
+    The actual bulk of the parameterization is done in the params.json file.
+    The training takes several measures to save time and increase convenience, such as 
+    -saving the abstracted features in a .pt file (so they only have to be computed if you change the parameters and/or the audio data),
+    -saving the model in both pytorch and rtneural formats,
+    -saving the model every 'save_scratch_model_every' epochs,
+    -saving the names of the last-trained model in last_network.json, and
+    -saving the training and validation losses in a plot png files
+
+    Args:
+    model_comment: str, optional
+        A comment to add to the model filename, as well as e.g. plot filenames. It 
+        can help to differentiate between different models or parameterizations.
+    existing_model_fp: str, optional
+        If a file path is provided, the model will be loaded from this file and
+        training will continue from this point. Useful for resuming training if any
+        issues arise or the model is still underfitting after num_epochs epochs.
+
+    Returns:
+        None
+    '''
+    if model_comment is None:
+        model_comment = ''
 
     set_seed(42)
     params = json.load(open('params.json'))
@@ -68,7 +88,7 @@ def main():
                          dropout_prob=params['dropout']).to(device)
     
     # pre-load saved weights/biases if available
-    if os.path.exists(existing_model_fp):
+    if existing_model_fp is not None and os.path.exists(existing_model_fp):
         state_dict = torch.load(existing_model_fp)
         net.load_state_dict(state_dict)
         print(f'Loaded existing model from {existing_model_fp}')
@@ -94,7 +114,7 @@ def main():
                                                        scheduler=scheduler,
                                                        record_weights_every=params['record_weights_every'],
                                                        print_every=20,
-                                                       save_scratch_model_every=600,
+                                                       save_scratch_model_every=params['save_scratch_model_every'],
                                                        scratch_model_dir='./scratch_model_dir',
                                                        num_batches=params['num_batches'])
 
@@ -102,20 +122,22 @@ def main():
     time = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
     if True:
         # save model in pytorch format
-        save_model(net, time, rtneural=False)
+        save_model(net, time, rtneural=False, model_comment=model_comment)
         # save model in rtneural format
-        save_model(net, time, rtneural=True)
+        save_model(net, time, rtneural=True, model_comment=model_comment)
 
     if True:
-        plot_losses(validation_losses, 'Validation', time)
-        plot_losses(training_losses, 'Training', time)
+        plot_losses(validation_losses, 'Validation', time, model_comment)
+        plot_losses(training_losses, 'Training', time, model_comment)
         plt.show()
 
     if params['animate_weights']:
         weights = [w.cpu() for w in weights]
         animate_weights(weights)
 
-def save_model(net, time_str: str, rtneural: bool, model_comment: str='', verbose: bool = True):
+def save_model(net, time_str: str, rtneural: bool, model_comment: str=None, verbose: bool = True):
+    if model_comment is None:
+        model_comment = ''
     model_fn = f'model_{time_str}{model_comment}.pth' if not rtneural else f'rt_model_{time_str}.json'
     model_fn = os.path.join('./models', model_fn) if not rtneural else os.path.join('./rtneural_models', model_fn)
     if not os.path.exists('last_network.json'):
@@ -134,7 +156,9 @@ def save_model(net, time_str: str, rtneural: bool, model_comment: str='', verbos
         print(f'Model saved as {model_fn}')
         
 
-def plot_losses(losses, which_str: str, time_str: str):
+def plot_losses(losses, which_str: str, time_str: str, model_comment: str=None):
+    if model_comment is None:
+        model_comment = ''
     plt.figure()
     plt.plot(losses, label=f'{which_str} Loss')
     # display value of last loss at the point
@@ -146,7 +170,11 @@ def plot_losses(losses, which_str: str, time_str: str):
     plt.title(f'{which_str} Loss')
     if not os.path.exists('plots'):
         os.makedirs('plots')
-    plt.savefig(f'plots/{which_str}_losses_{time_str}.png')
+    fn = f'plots/{which_str}_losses_{time_str}'
+    if model_comment:
+        fn += f'_{model_comment}'
+    fn += '.png'
+    plt.savefig(fn)
 
 
 def animate_weights(weights: np.array):
