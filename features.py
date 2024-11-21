@@ -9,7 +9,8 @@ import torchcrepe
 import matplotlib.pyplot as plt
 import pacmap
 from util import get_N_cycle_segments, pitch_lin_to_log_scale, \
-    hash_and_store_parameters, save_tensors_to_pt, load_tensors_from_pt
+    hash_and_store_parameters, save_tensors_to_pt, load_tensors_from_pt, \
+    get_torch_device
 
 def transform_via_pacmap(X, n_components=3, n_neighbors=5, MN_ratio=0.5, FP_ratio=0.5, 
                          distance='euclidean',
@@ -80,7 +81,7 @@ def getFeatures(waveform_array: torch.Tensor,
                                                fmin=f_low, fmax=f_high, 
                                                 model='tiny', decoder = torchcrepe.decode.viterbi, 
                                                 return_periodicity = True, 
-                                                batch_size=256, device='mps',
+                                                batch_size=256, device=get_torch_device(),
                                                 pad=True)
         pitch = pitch.squeeze()
         voicedness = voicedness.squeeze()
