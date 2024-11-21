@@ -16,16 +16,17 @@ To train:
 
 `pip install -r requirements.txt`
 
-then, you want to set up the program to be trained on audio of your choosing. to do this, open params.json.
+Then, you want to set up the program to be trained on audio of your choosing. To do this, open params.json. Edit the path for the entry 'audio_files_path'. It has only been tested using .wav files and relative paths, so you may want to put your desired folder into this directory. 
 
-Edit the path for the entry 'audio_files_path'. it has only been tested using relative paths, so you may want to 
-put your desired folder into this directory. also it has only been tested with .wav files.
+If you instead want to train on basic, non-aliasing waveforms (sine, triangle, saw, square) as a test, you can keep the 'audio_files_path' in its default state "./basic_waves/basic_waves.wav", but run 
+`python3 ./basic_waves/make_basic_waves.py`
+which will create a long audio file of these waveforms (randomly changing frequency and wave shape). 
 
-Then, you should be able to train by running
+After either selecting your custom audio folder or creating the basic waves, you can train the network by running
 `python3 ./train.py`
 
-Training will take a long time, depending on, among other things, num_epochs in params.json, how many audio files, how long they are, and the hop size.
+Training will take a long time, depending on, among other things, num_epochs in params.json, how many audio files, how long they are, and the hop size. You can get an idea of how long it will take as it's running because it will continually inform of its relative progress.
 
 Once it's done training, you can test the network's ability to make inferences by running 
 `python3 ./predict.py`
-which will display predicted spectra and waveforms superimposed with their respective targets. It will also optionally export (very short) audio files for each prediction/target pair. 
+which will display predicted spectra and waveforms superimposed with their respective targets. It will also optionally export (very short) audio files for each prediction/target pair. These files are not really designed to listen to in a raw manner, instead you could import them into another software and loop them. Listening to the files in a looped manner is also somewhat misleading, because the full resynthesis algorithm also involves overlap-and-add.
