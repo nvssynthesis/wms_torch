@@ -87,11 +87,9 @@ def main():
     training_losses, validation_losses, weights = network.train(model=net,
                                                        data_loader=train_loader, 
                                                        loss_fn=criterion, 
-                                                       
                                                        optimizer=optimizer, 
                                                        device=device, 
                                                        num_epochs=params['num_epochs'], 
-
                                                        validation_loader=validation_loader,
                                                        scheduler=scheduler,
                                                        record_weights_every=params['record_weights_every'],
@@ -102,54 +100,53 @@ def main():
 
     # name model file with date and time
     time = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-    if True:    # save model in pytorch format
-        model_fn = f'model_{time}{model_comment}.pth'
-        # place in models folder
-        model_fn = os.path.join('./models', model_fn)
-        if not os.path.exists('last_network.json'):
-            json.dump({'last_network': model_fn}, open('last_network.json', 'w'))
-        else:
-            last_network_tracker = json.load(open('last_network.json'))
-            last_network_tracker['last_network'] = model_fn
-            json.dump(last_network_tracker, open('last_network.json', 'w'))
-        torch.save(net.state_dict(), model_fn)
-        print(f'Model saved as {model_fn}')
-
-    if True:    # rtneural file save
-        model_fn = f'rt_model_{time}.json'
-        # place in models folder
-        model_fn = os.path.join('./rtneural_models', model_fn)
-        if not os.path.exists('last_network.json'):
-            json.dump({'last_rt_network': model_fn}, open('last_network.json', 'w'))
-        else:
-            last_network_tracker = json.load(open('last_network.json'))
-            last_network_tracker['last_rt_network'] = model_fn
-            json.dump(last_network_tracker, open('last_network.json', 'w'))
-#**********************************************************************
-        save_rt_model(net, model_fn)
-#**********************************************************************
-        print(f'Model saved as {model_fn}')
+    if True:
+        # save model in pytorch format
+        save_model(net, time, rtneural=False)
+        # save model in rtneural format
+        save_model(net, time, rtneural=True)
 
     if True:
-        def plot_losses(losses, which_str: str):
-            plt.figure()
-            plt.plot(losses, label=f'{which_str} Loss')
-            # display value of last loss at the point
-            plt.text(len(losses)-1, losses[-1], f'{losses[-1]:.4f}')
-            plt.yscale('log')
-            plt.ylim([np.min(losses)-np.min(losses)*0.01, np.max(losses)+np.max(losses)*0.01])
-            plt.xlabel('Epoch')
-            plt.ylabel('Loss')
-            plt.title(f'{which_str} Loss')
-            plt.savefig(f'plots/{which_str}_losses_{time}.png')
-
-        plot_losses(validation_losses, 'Validation')
-        plot_losses(training_losses, 'Training')
+        plot_losses(validation_losses, 'Validation', time)
+        plot_losses(training_losses, 'Training', time)
         plt.show()
 
     if params['animate_weights']:
         weights = [w.cpu() for w in weights]
         animate_weights(weights)
+
+def save_model(net, time_str: str, rtneural: bool, model_comment: str='', verbose: bool = True):
+    model_fn = f'model_{time_str}{model_comment}.pth' if not rtneural else f'rt_model_{time_str}.json'
+    model_fn = os.path.join('./models', model_fn) if not rtneural else os.path.join('./rtneural_models', model_fn)
+    if not os.path.exists('last_network.json'):
+        key = 'last_network' if not rtneural else 'last_rt_network'
+        json.dump({key: model_fn}, open('last_network.json', 'w'))
+    else:
+        last_network_tracker = json.load(open('last_network.json'))
+        key = 'last_network' if not rtneural else 'last_rt_network'
+        last_network_tracker[key] = model_fn
+        json.dump(last_network_tracker, open('last_network.json', 'w'))
+    if rtneural:
+        save_rt_model(net, model_fn)
+    else:
+        torch.save(net.state_dict(), model_fn)
+    if verbose:
+        print(f'Model saved as {model_fn}')
+        
+
+def plot_losses(losses, which_str: str, time_str: str):
+    plt.figure()
+    plt.plot(losses, label=f'{which_str} Loss')
+    # display value of last loss at the point
+    plt.text(len(losses)-1, losses[-1], f'{losses[-1]:.4f}')
+    plt.yscale('log')
+    plt.ylim([np.min(losses)-np.min(losses)*0.01, np.max(losses)+np.max(losses)*0.01])
+    plt.xlabel('Epoch')
+    plt.ylabel('Loss')
+    plt.title(f'{which_str} Loss')
+    if not os.path.exists('plots'):
+        os.makedirs('plots')
+    plt.savefig(f'plots/{which_str}_losses_{time_str}.png')
 
 
 def animate_weights(weights: np.array):
