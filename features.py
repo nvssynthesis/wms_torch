@@ -1,16 +1,27 @@
+import inspect
+import os
 import numpy as np
 from sklearn.preprocessing import StandardScaler
 import librosa
 import torch
-import torchaudio 
 import torchaudio.functional as F
 import torchcrepe 
 import matplotlib.pyplot as plt
-import inspect
-import os
+import pacmap
 from util import get_N_cycle_segments, pitch_lin_to_log_scale, \
     hash_and_store_parameters, save_tensors_to_pt, load_tensors_from_pt
 
+def transform_via_pacmap(X, n_components=3, n_neighbors=5, MN_ratio=0.5, FP_ratio=0.5, 
+                         distance='euclidean',
+                         verbose=True) :
+    distance = 'euclidean'
+    embedding = pacmap.PaCMAP(n_components=n_components, n_neighbors=n_neighbors, 
+                              MN_ratio=MN_ratio, FP_ratio=FP_ratio,
+                              distance=distance)
+    if verbose:
+        print('Fitting PaCMAP...')
+    X_embedded = embedding.fit_transform(X)
+    return X_embedded, embedding
 
 def getFeatures(waveform_array: torch.Tensor, 
                 sample_rate, n_fft, window_size, hop_size, 
@@ -19,18 +30,27 @@ def getFeatures(waveform_array: torch.Tensor,
                 f_low=85, f_high=3500,
                 cycles_per_window=None,
                 power=2.0, n_mel=23, n_mfcc=13, 
+                mfcc_dim_reduction=None,
                 normalize_mfcc=True,
                 pitch_log_scale=True,
                 pitch_log_eps=0.0001,
-                center=False):    
+                center=False,
+                verbose=True):    
     # Get the current frame
     frame = inspect.currentframe()
     
+    if verbose:
+        print("Hashing, storing, and potentially loading pre-computed parameters...")
     resulting_data_fn = hash_and_store_parameters(frame, waveform_array)
     if os.path.exists(resulting_data_fn):
+        print('Loading pre-computed features...')
         stft, mfcc, pitch = load_tensors_from_pt(resulting_data_fn)
         return stft, mfcc, pitch
 
+
+    if verbose:
+        print('Extracting features from audio...')
+        print(f'Detecting pitch via {pitch_detection_method}')
     if pitch_detection_method == 'pyin':
         # pitch detect with librosa using librosa.pyin
         pitch, voiced_flag, voicedness = librosa.pyin(waveform_array.squeeze().numpy(), 
@@ -74,11 +94,14 @@ def getFeatures(waveform_array: torch.Tensor,
         # this is done by resampling the audio for each window
         segmented_waveforms, resampled_wave_matrix = get_N_cycle_segments(waveform_array, sample_rate, window_size, hop_size, 
                                         pitch, voiced_probs=None, 
-                                        cycles_per_window=cycles_per_window)
+                                        cycles_per_window=cycles_per_window,
+                                        verbose=verbose)
     else:
         raise NotImplementedError("Cycles per window is currently required")
 
     # calculate mfcc for each segmented waveform
+    if verbose: 
+        print('Calculating MFCC...')
     mfcc = []
     for wf in segmented_waveforms:
         # window the waveform with hanning window
@@ -97,6 +120,8 @@ def getFeatures(waveform_array: torch.Tensor,
     
 
     # calculate fft for each resampled waveform
+    if verbose:
+        print('Calculating STFT...')
     stft = []
     for i in range(len(resampled_wave_matrix)):
         # hanning window the waveform
@@ -111,6 +136,19 @@ def getFeatures(waveform_array: torch.Tensor,
         mfcc = scaler.fit_transform(mfcc)
         mfcc = torch.tensor(mfcc, dtype=torch.float32)
 
+
+    if mfcc_dim_reduction is not None:
+        if mfcc_dim_reduction == 'pacmap':
+            mfcc, embedding = transform_via_pacmap(mfcc, 
+                                        n_components=3, n_neighbors=10, 
+                                        MN_ratio=0.5, FP_ratio=2.0, 
+                                        distance='euclidean',
+                                        verbose=verbose)
+            mfcc = torch.tensor(mfcc, dtype=torch.float32)
+        else:
+            raise ValueError(f'Unrecognized mfcc_dim_reduction method: {mfcc_dim_reduction}')
+
+
     if pitch_log_scale:
         pitch = pitch_lin_to_log_scale(pitch, f_low, pitch_log_eps)
 
@@ -123,7 +161,8 @@ def getFeatures(waveform_array: torch.Tensor,
         assert voicedness.shape[0] == pitch.shape[0]
         pitch = torch.cat((pitch, voicedness.unsqueeze(1)), dim=1)
 
+    if verbose:
+        print(f'Saving features (based on this parameterization (of this audio dataset)) to disk at {resulting_data_fn}')
     save_tensors_to_pt(stft, mfcc, pitch, resulting_data_fn)
-
         
     return stft, mfcc, pitch

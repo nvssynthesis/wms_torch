@@ -266,7 +266,8 @@ def closest_ratio(sample_rate_1, sample_rate_2, max_denominator=1000):
 def get_N_cycle_segments(waveform_array, sample_rate: float, window_size: int, hop_size: int, 
                    pitch_array,
                    voiced_probs=None,
-                   cycles_per_window: int=1) -> tuple[list[np.ndarray], np.ndarray]:
+                   cycles_per_window: int=1,
+                   verbose=True) -> tuple[list[np.ndarray], np.ndarray]:
     '''
     This calculates the N-cycle segments per window, by:
     -Based on correpsonding fundumanetal frequency, indexing the waveform to get the N-cycle segment
@@ -308,6 +309,8 @@ def get_N_cycle_segments(waveform_array, sample_rate: float, window_size: int, h
 
     assert pitch_array.shape[0] == raw_frames.shape[-1]
 
+    if verbose:
+        print("Resampling audio to have N cycles per window")
     # resample each window to have N cycles of the waveform. 
     for i in range(pitch_array.shape[0]):
         f_0 = pitch_array[i]

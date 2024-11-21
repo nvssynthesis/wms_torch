@@ -9,22 +9,6 @@ import datetime
 from time import time
 from save import save_rt_model
 
-class Net(nn.Module):
-    def __init__(self, input_size, output_size):
-        super(Net, self).__init__()
-        self.dense_layers = nn.Sequential(
-            nn.Linear(input_size, 80), 
-            nn.ReLU(),
-            nn.Linear(80, 128), 
-            nn.ReLU(),
-            nn.Linear(128, output_size),
-            nn.ReLU()
-        ) 
-
-    def forward(self, x):
-        y = self.dense_layers(x)
-        return y 
-
 class GRUNet(nn.Module):
     def __init__(self, input_size, hidden_size, encoded_size, output_size, dropout_prob: float = 0.1):
         super(GRUNet, self).__init__()
@@ -45,10 +29,6 @@ class GRUNet(nn.Module):
         # Forward pass through GRU
         out, hn = self.gru(out, h0)
 
-        # Use the hidden state of the last time step
-        out = out[:, -1, :]
-        # Flatten the output before passing to dense layers
-        out = out.view(out.size(0), -1)
         out = self.dense_layers(out)
         return out, hn
 
@@ -68,7 +48,7 @@ class GRUNet(nn.Module):
         return weights
         
 
-def train_epoch(model, data_loader: torch.utils.data.DataLoader, loss_fn, optimizer, device, 
+def train_epoch(model: GRUNet, data_loader: torch.utils.data.DataLoader, loss_fn, optimizer, device, 
                 validation_loader: torch.utils.data.DataLoader = None,
                 num_batches: int = None):
     model.train()
@@ -77,20 +57,25 @@ def train_epoch(model, data_loader: torch.utils.data.DataLoader, loss_fn, optimi
     
     n_training_samples = len(data_loader.dataset)
     n_validation_samples = len(validation_loader.dataset) if validation_loader else 1
+
     for batch_idx, (inputs, targets) in enumerate(data_loader):
         if num_batches is not None and batch_idx >= num_batches:
             break
+        inputs = inputs.to(device)
         targets = targets.to(device)
-        for subseq_idx in range(0, inputs.size(1), 3):
-            subseq_inputs = inputs[:, subseq_idx:, :]
-            subseq_inputs = subseq_inputs.to(device)
-            h0 = model.init_hidden(subseq_inputs.size(0)).to(device)
-            optimizer.zero_grad()
-            outputs, hn = model(subseq_inputs, h0)
-            loss = loss_fn(outputs, targets[:, -1, :]) # this is the last frame of the target, necessary for gru. for dense, it would be just targets.
-            loss.backward()
-            optimizer.step()
-            epoch_loss += loss.item()
+
+        # subsequences chosen randomly, more likely to use short subsequences (which would use a higher subseq_limiting_idx)
+        # subseq_limiting_idx = np.random.choice(np.arange(1, inputs.size(1)), p=np.arange(1, inputs.size(1)) / np.sum(np.arange(1, inputs.size(1))))
+        # subseq_inputs = inputs[:, subseq_limiting_idx:, :]
+
+        # subseq_inputs = subseq_inputs.to(device)
+        h0 = model.init_hidden(inputs.size(0)).to(device)
+        optimizer.zero_grad()
+        outputs, hn = model(inputs, h0)
+        loss = loss_fn(outputs, targets) # this is the last frame of the target, necessary for gru. for dense, it would be just targets.
+        loss.backward()
+        optimizer.step()
+        epoch_loss += loss.item()
     
     if validation_loader:
         model.eval()
@@ -98,14 +83,15 @@ def train_epoch(model, data_loader: torch.utils.data.DataLoader, loss_fn, optimi
             for val_batch_idx, (val_inputs, val_targets) in enumerate(validation_loader):
                 if num_batches is not None and val_batch_idx >= num_batches:
                     break
+                val_inputs = val_inputs.to(device)
                 val_targets = val_targets.to(device)
-                for subseq_idx in range(0, inputs.size(1), 3):
-                    val_subseq_inputs = val_inputs[:, subseq_idx:, :]
-                    val_subseq_inputs = val_subseq_inputs.to(device)
 
-                    val_h0 = model.init_hidden(val_subseq_inputs.size(0)).to(device)
-                    val_outputs, val_hn = model(val_subseq_inputs, val_h0)
-                    val_loss += loss_fn(val_outputs, val_targets[:, -1, :]).item()
+                # val_subseq_inputs = val_inputs[:, subseq_limiting_idx:, :]
+                # val_subseq_inputs = val_subseq_inputs.to(device)
+
+                val_h0 = model.init_hidden(val_inputs.size(0)).to(device)
+                val_outputs, val_hn = model(val_inputs, val_h0)
+                val_loss += loss_fn(val_outputs, val_targets).item()
     
     return epoch_loss, (val_loss / n_validation_samples) * n_training_samples if validation_loader else 0.0
 

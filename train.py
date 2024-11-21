@@ -84,12 +84,13 @@ def main():
     
     scheduler = MultiplicativeLR(optimizer, lr_lambda=lambda epoch: params['lr_decay'])
 
-    training_losses, validation_losses, weights = network.train(net, 
-                                                       train_loader, 
-                                                       criterion, 
-                                                       optimizer, 
-                                                       device, 
-                                                       params['num_epochs'], 
+    training_losses, validation_losses, weights = network.train(model=net,
+                                                       data_loader=train_loader, 
+                                                       loss_fn=criterion, 
+                                                       
+                                                       optimizer=optimizer, 
+                                                       device=device, 
+                                                       num_epochs=params['num_epochs'], 
 
                                                        validation_loader=validation_loader,
                                                        scheduler=scheduler,
