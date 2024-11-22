@@ -3,7 +3,7 @@ venv/
 __pycache__/
 .DS_Store
 *.png
-*.wav
+written_audio/
 *.pth
 *.txt
 *.gif
