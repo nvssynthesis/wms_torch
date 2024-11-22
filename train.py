@@ -138,6 +138,10 @@ def main(model_comment = None, existing_model_fp = None) -> None:
 def save_model(net, time_str: str, rtneural: bool, model_comment: str=None, verbose: bool = True):
     if model_comment is None:
         model_comment = ''
+    if not os.path.exists('./models'):
+        os.makedirs('./models')
+    if not os.path.exists('./rtneural_models'):
+        os.makedirs('./rtneural_models')
     model_fn = f'model_{time_str}{model_comment}.pth' if not rtneural else f'rt_model_{time_str}.json'
     model_fn = os.path.join('./models', model_fn) if not rtneural else os.path.join('./rtneural_models', model_fn)
     if not os.path.exists('last_network.json'):
