@@ -52,7 +52,9 @@ def main():
                                     include_voicedness=params['include_voicedness'],
                                     pitch_detection_method=params['pitch_detection_method'],
                                     cycles_per_window=params['cycles_per_window'],
-                                    training_seq_length=params['training_seq_length'],)
+                                    n_fft_preserved=params['n_fft_preserved'],
+                                    training_seq_length=params['training_seq_length'],
+                                    force_recompute_features=params['force_recompute_features'])
     
     X, Y = X_test, Y_test
 

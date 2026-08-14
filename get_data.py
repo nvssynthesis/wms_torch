@@ -8,6 +8,7 @@ import pacmap
 
 def get_data(audio_files_path, sample_rate, window_size, hop_size, n_fft, fft_type, power, 
              n_mfcc=13, n_mel=23, 
+             n_fft_preserved=None,
              mfcc_dim_reduction=None,
              f_low=85, f_high=2000, 
              include_voicedness=True,
@@ -15,6 +16,7 @@ def get_data(audio_files_path, sample_rate, window_size, hop_size, n_fft, fft_ty
              cycles_per_window=None,
              training_seq_length=20,
              require_sequential_data: bool=True,
+             force_recompute_features=False,
             random_state=12345):
     audio_data = util.load_audio_files(audio_files_path, sample_rate)
     audio_tensor = util.concatenateWaveforms(audio_data, window_size)
@@ -33,12 +35,15 @@ def get_data(audio_files_path, sample_rate, window_size, hop_size, n_fft, fft_ty
                                 f_low=f_low, f_high=f_high, 
                                 include_voicedness=include_voicedness,
                                 pitch_detection_method=pitch_detection_method,
-                                cycles_per_window=cycles_per_window)
+                                cycles_per_window=cycles_per_window,
+                                force_recompute_features=force_recompute_features)
 
     # input is mfcc and pitch
     # output is stft
     X = torch.cat((mfcc, pitch), dim=1) 
     Y = stft
+    if n_fft_preserved is not None and n_fft_preserved != n_fft:
+        Y = Y[:, :n_fft_preserved]
     
     if require_sequential_data:
         # split the data into sequences

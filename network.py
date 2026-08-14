@@ -19,8 +19,10 @@ class GRUNet(nn.Module):
         )
         self.gru = nn.GRU(encoded_size, hidden_size, 1, batch_first=True, dropout=dropout_prob)
         self.dense_layers = nn.Sequential(
-            nn.Linear(hidden_size, output_size),
+            nn.Linear(hidden_size, hidden_size),
             nn.ReLU(),
+            nn.Linear(hidden_size, output_size),
+            nn.Softplus(),
         )
 
     def forward(self, x, h0):
@@ -115,7 +117,8 @@ def train(model, data_loader, loss_fn, optimizer, device, num_epochs, validation
             if validation_loader:
                 print(f'Validation Loss: {validation_losses[epoch]:.5f}')
             if scheduler:
-                print(f'Learning rate: {scheduler.get_last_lr()[0]}')
+                current_lr = optimizer.param_groups[0]['lr']
+                print(f'Learning rate: {current_lr}')
             for name, param in model.named_parameters():
                 print(f'{name} has norm {torch.linalg.vector_norm(param)}')
             print('-' * 50)
@@ -149,7 +152,7 @@ def train(model, data_loader, loss_fn, optimizer, device, num_epochs, validation
 
 
         if scheduler:
-            scheduler.step()
+            scheduler.step(validation_losses[epoch])
 
     print('Finished training')
     return training_losses, validation_losses, weights

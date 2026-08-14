@@ -44,7 +44,7 @@ def main(model_comment = None, existing_model_fp = None) -> None:
     existing_model_fp: str, optional
         If a file path is provided, the model will be loaded from this file and
         training will continue from this point. Useful for resuming training if any
-        issues arise or the model is still underfitting after num_epochs epochs.
+        issues arise or the model is still underfitting after `num_epochs` epochs.
 
     Returns:
         None
@@ -55,7 +55,7 @@ def main(model_comment = None, existing_model_fp = None) -> None:
     set_seed(42)
     params = json.load(open('params.json'))
 
-    assert params['n_fft'] >= params['window_size'], 'n_fft must be greater than or equal to window_size'
+    assert params['n_fft'] >= params['window_size'], '`n_fft` must be greater than or equal to `window_size`'
 
     X_train, Y_train, X_test, Y_test = get_data(audio_files_path=params['audio_files_path'], 
                                                 sample_rate=params['sample_rate'], 
@@ -72,7 +72,9 @@ def main(model_comment = None, existing_model_fp = None) -> None:
                                                 include_voicedness=params['include_voicedness'],
                                                 pitch_detection_method=params['pitch_detection_method'],
                                                 cycles_per_window=params['cycles_per_window'],
-                                                training_seq_length=params['training_seq_length'],)
+                                                n_fft_preserved=params['n_fft_preserved'],
+                                                training_seq_length=params['training_seq_length'],
+                                                force_recompute_features=params['force_recompute_features'])
 
     device = get_torch_device()
     print(f'Using device: {device}')
@@ -102,7 +104,10 @@ def main(model_comment = None, existing_model_fp = None) -> None:
     elif params['optimizer'] == 'SGD':
         optimizer = optim.SGD(net.parameters(), lr=params['learning_rate'], weight_decay=params['weight_decay'], momentum=params['momentum'])
     
-    scheduler = MultiplicativeLR(optimizer, lr_lambda=lambda epoch: params['lr_decay'])
+    # scheduler = MultiplicativeLR(optimizer, lr_lambda=lambda epoch: params['lr_decay'])
+    scheduler = optim.lr_scheduler.ReduceLROnPlateau(
+        optimizer, mode='min', factor=0.5, patience=15, min_lr=1e-6
+    )
 
     training_losses, validation_losses, weights = network.train(model=net,
                                                        data_loader=train_loader, 
@@ -211,4 +216,5 @@ def animate_weights(weights: np.array):
     plt.show()
 
 if __name__ == '__main__':
-    main()
+    main()    
+    # main('cont', './models/model_2026-08-10_22-39-33.pth')

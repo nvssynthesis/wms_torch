@@ -136,21 +136,65 @@ class WeightedMSELoss(nn.Module):
     def forward(self, predictions: torch.tensor, targets: torch.tensor):
         # weigh each frequency bin by its index. the 0th bin should receive full weight, 
         # and each successive bin should receive .5 the weight of the previous bin.
-        num_feats = predictions.shape[1]
+        num_feats = predictions.shape[-1]   # number of frequency bins
         r = 0.45
         powvec = torch.arange(0, -r, -(r/num_feats), device=predictions.device)
         weights = torch.pow(2.0, 1.0*powvec)
         weights = (weights / torch.sum(weights)) * num_feats
 
         return torch.mean(weights * (predictions - targets) ** 2.0)
+    
+class SmoothnessRegularizedLoss(torch.nn.Module):
+    def __init__(self, base_criterion, lambda_smooth=0.05):
+        super().__init__()
+        self.base_criterion = base_criterion
+        self.lambda_smooth = lambda_smooth
 
-def get_criterion(s: str):
+    def forward(self, pred, target):
+        recon_loss = self.base_criterion(pred, target)
+        diff = pred[..., 1:] - pred[..., :-1]  # differences along freq (dim=2)
+        smoothness_loss = (diff ** 2).mean()
+        return recon_loss + self.lambda_smooth * smoothness_loss
+    
+class SpectralLoss(torch.nn.Module):
+    """
+    Combines spectral convergence (linear domain) + log-magnitude L1 loss.
+    Expects pred/target to be in log1p domain (matching your current pipeline).
+    """
+    def __init__(self, sc_weight=1.0, log_weight=1.0, eps=1e-8):
+        super().__init__()
+        self.sc_weight = sc_weight
+        self.log_weight = log_weight
+        self.eps = eps
+
+    def forward(self, pred_log, target_log):
+        log_loss = torch.nn.functional.l1_loss(pred_log, target_log)
+
+        pred_lin = torch.expm1(pred_log)
+        target_lin = torch.expm1(target_log)
+        num = torch.norm(target_lin - pred_lin, p='fro', dim=-1)
+        # print(f"num min: {num.min()}, med: {num.median()}, max: {num.max()}")
+        denom = torch.norm(target_lin, p='fro', dim=-1)
+        denom = torch.clamp(denom, min=0.5)
+        # print(f"denom min: {denom.min()}, med: {denom.median()}, max: {denom.max()}")
+        sc_loss = (num / denom).mean()
+
+        return self.sc_weight * sc_loss + self.log_weight * log_loss
+        
+def get_criterion(s: str, lambda_smooth: float = 0.0) -> torch.nn.Module:
     if s == 'MSE':
-        return torch.nn.MSELoss()
+        base = torch.nn.MSELoss()
     elif s == 'WeightedMSE':
-        return WeightedMSELoss()
+        base = WeightedMSELoss()
+    elif s == 'Spectral':
+        base = SpectralLoss(sc_weight=1.0, log_weight=1.0)
     else:
         raise ValueError('Invalid criterion')
+
+    if lambda_smooth > 0:
+        return SmoothnessRegularizedLoss(base, lambda_smooth)
+    return base
+
 
 def process_wave(wave: np.ndarray, current_fs: float, desired_fs: float):
     resampler = T.Resample(current_fs, desired_fs, dtype=wave.dtype)

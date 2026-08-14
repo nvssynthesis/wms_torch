@@ -36,6 +36,7 @@ def getFeatures(waveform_array: torch.Tensor,
                 pitch_log_scale=True,
                 pitch_log_eps=0.0001,
                 center=False,
+                force_recompute_features=False,
                 verbose=True):    
     # Get the current frame
     frame = inspect.currentframe()
@@ -43,7 +44,7 @@ def getFeatures(waveform_array: torch.Tensor,
     if verbose:
         print("Hashing, storing, and potentially loading pre-computed parameters...")
     resulting_data_fn = hash_and_store_parameters(frame, waveform_array)
-    if os.path.exists(resulting_data_fn):
+    if os.path.exists(resulting_data_fn) and not force_recompute_features:
         print('Loading pre-computed features...')
         stft, mfcc, pitch = load_tensors_from_pt(resulting_data_fn)
         return stft, mfcc, pitch
@@ -130,6 +131,7 @@ def getFeatures(waveform_array: torch.Tensor,
         y = x * np.hanning(x.shape[0])
         stft.append(np.abs(np.fft.rfft(y, n=n_fft)))
     stft = torch.tensor(stft, dtype=torch.float32)
+    stft = torch.log1p(stft)  # log(1 + magnitude): compresses dynamic range, matches perceptual loudness
 
     if normalize_mfcc:
         # normalize the mfcc
@@ -138,6 +140,9 @@ def getFeatures(waveform_array: torch.Tensor,
         mfcc = torch.tensor(mfcc, dtype=torch.float32)
 
 
+    if mfcc_dim_reduction == '':
+        mfcc_dim_reduction = None 
+    
     if mfcc_dim_reduction is not None:
         if mfcc_dim_reduction == 'pacmap':
             mfcc, embedding = transform_via_pacmap(mfcc, 
