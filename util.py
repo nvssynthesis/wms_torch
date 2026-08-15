@@ -287,12 +287,15 @@ def make_conjugate_symmetric(x: torch.Tensor) -> torch.Tensor:
     return result
 
 
-def pitch_lin_to_log_scale(pitch: torch.Tensor, f_low: float, pitch_log_eps: float) -> torch.Tensor:
+pitch_log_eps=0.0001
+
+
+def pitch_lin_to_log_scale(pitch: torch.Tensor, f_low: float) -> torch.Tensor:
     assert f_low > 0
     pitch = torch.clip(pitch, min=f_low)
     return torch.log(pitch - f_low + pitch_log_eps)
 
-def pitch_log_to_lin_scale(pitch: torch.Tensor, f_low: float, pitch_log_eps: float) -> torch.Tensor:
+def pitch_log_to_lin_scale(pitch: torch.Tensor, f_low: float) -> torch.Tensor:
     return torch.exp(pitch) + f_low - pitch_log_eps
 
 

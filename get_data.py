@@ -3,8 +3,6 @@ import features
 import torch
 from sklearn.model_selection import train_test_split
 import matplotlib.pyplot as plt
-import pacmap
-
 
 def get_data(audio_files_path, sample_rate, window_size, hop_size, n_fft, fft_type, power, 
              n_mfcc=13, n_mel=23, 

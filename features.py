@@ -3,6 +3,7 @@ import os
 import numpy as np
 from sklearn.preprocessing import StandardScaler
 import librosa
+from scipy.fft import dct
 import torch
 import torchaudio.functional as F
 import torchcrepe 
@@ -11,6 +12,7 @@ import pacmap
 from util import get_N_cycle_segments, pitch_lin_to_log_scale, \
     hash_and_store_parameters, save_tensors_to_pt, load_tensors_from_pt, \
     get_torch_device
+from data_to_midi import write_data_to_midi
 
 def transform_via_pacmap(X, n_components=3, n_neighbors=5, MN_ratio=0.5, FP_ratio=0.5, 
                          distance='euclidean',
@@ -24,6 +26,63 @@ def transform_via_pacmap(X, n_components=3, n_neighbors=5, MN_ratio=0.5, FP_rati
     X_embedded = embedding.fit_transform(X)
     return X_embedded, embedding
 
+
+def extract_mfcc_batch(segmented_waveforms, sample_rate, n_fft, n_mel, n_mfcc):
+    # Stack all segments into one array: (num_segments, n_fft)
+    windowed = []
+    window = np.hanning(segmented_waveforms[0].shape[0])
+    for wf in segmented_waveforms:
+        wf = wf * window if wf.shape[0] == window.shape[0] else wf * np.hanning(wf.shape[0])
+        if wf.shape[0] < n_fft:
+            wf = librosa.util.fix_length(wf, size=n_fft, mode='wrap')
+        windowed.append(wf)
+    windowed = np.stack(windowed)  # (num_segments, n_fft)
+
+    # Compute power spectrum for ALL segments at once via FFT (vectorized over axis=1)
+    spectrum = np.abs(np.fft.rfft(windowed, n=n_fft, axis=1)) ** 2  # (num_segments, n_fft//2 + 1)
+
+    # Build mel filterbank ONCE
+    mel_basis = librosa.filters.mel(sr=sample_rate, n_fft=n_fft, n_mels=n_mel)  # (n_mels, n_fft//2+1)
+    mel_spec = spectrum @ mel_basis.T  # (num_segments, n_mels)
+
+    # Log + DCT (type 2) ONCE, vectorized
+    log_mel = librosa.power_to_db(mel_spec.T).T  # librosa expects (n_mels, frames), so transpose
+    mfcc = dct(log_mel, type=2, axis=1, norm='ortho')[:, :n_mfcc]  # (num_segments, n_mfcc)
+
+    return torch.tensor(mfcc, dtype=torch.float32)
+
+def extract_stft_batch(resampled_wave_matrix, n_fft):
+    # Stack all waveforms into a single 2D array first
+    wave_matrix = np.stack(resampled_wave_matrix)  # (num_frames, wave_length)
+
+    # Apply Hanning window (broadcasts across all rows if wave_length is constant)
+    window = np.hanning(wave_matrix.shape[1])
+    windowed = wave_matrix * window  # (num_frames, wave_length)
+
+    # Vectorized FFT across all frames at once
+    stft = np.abs(np.fft.rfft(windowed, n=n_fft, axis=1))  # (num_frames, n_fft//2 + 1)
+
+    stft = torch.tensor(stft, dtype=torch.float32)
+    stft = torch.log1p(stft)
+
+    return stft
+
+def getMidiNameFromFeaturesFile(feature_data_fn):
+    midi_filename = feature_data_fn.replace('.pt', '.mid')
+    # also need to move it from ./parameterizations to ./midi_files
+    midi_filename = midi_filename.replace('parameterizations', 'midi_files')
+    # make sure the directory exists
+    os.makedirs(os.path.dirname(midi_filename), exist_ok=True)
+    return midi_filename
+
+def getAudioNameFromFeaturesFile(feature_data_fn):
+    audio_filename = feature_data_fn.replace('.pt', '.wav')
+    # also need to move it from ./parameterizations to ./audio_files
+    audio_filename = audio_filename.replace('parameterizations', 'audio_files')
+    os.makedirs(os.path.dirname(audio_filename), exist_ok=True)
+    return audio_filename
+
+
 def getFeatures(waveform_array: torch.Tensor, 
                 sample_rate, n_fft, window_size, hop_size, 
                 pitch_detection_method = 'crepe',
@@ -34,12 +93,10 @@ def getFeatures(waveform_array: torch.Tensor,
                 mfcc_dim_reduction=None,
                 normalize_mfcc=True,
                 pitch_log_scale=True,
-                pitch_log_eps=0.0001,
                 center=False,
                 force_recompute_features=False,
-                verbose=True):    
-    # Get the current frame
-    frame = inspect.currentframe()
+                verbose=True): 
+    frame = inspect.currentframe()  # TODO: this is not a good way to ensure identity of params. Instead we could use a map
     
     if verbose:
         print("Hashing, storing, and potentially loading pre-computed parameters...")
@@ -47,6 +104,12 @@ def getFeatures(waveform_array: torch.Tensor,
     if os.path.exists(resulting_data_fn) and not force_recompute_features:
         print('Loading pre-computed features...')
         stft, mfcc, pitch = load_tensors_from_pt(resulting_data_fn)
+
+        midi_fn = getMidiNameFromFeaturesFile(resulting_data_fn)
+        if not os.path.exists(midi_fn):
+            print('Writing feature data to MIDI...')
+            write_data_to_midi(torch.cat((mfcc, pitch), dim=1), f_low, include_voicedness, hop_size, midi_fn)
+
         return stft, mfcc, pitch
 
 
@@ -104,34 +167,15 @@ def getFeatures(waveform_array: torch.Tensor,
     # calculate mfcc for each segmented waveform
     if verbose: 
         print('Calculating MFCC...')
-    mfcc = []
-    for wf in segmented_waveforms:
-        # window the waveform with hanning window
-        wf = wf * np.hanning(wf.shape[0])
 
-        # pad wf if necessary
-        if wf.shape[0] < n_fft:
-            wf = librosa.util.fix_length(wf, size=n_fft, mode='wrap')   # may want to use 'constant' instead of 'wrap'
-        m = librosa.feature.mfcc(y=wf, 
-                                 sr=sample_rate, 
-                                 n_fft = n_fft, n_mfcc=n_mfcc, 
-                                 dct_type=2, lifter=0, 
-                                 hop_length=9999999)
-        mfcc.append(torch.Tensor(m).squeeze())
-    mfcc = torch.stack(mfcc)
+    mfcc = extract_mfcc_batch(segmented_waveforms, sample_rate, n_fft, n_mel, n_mfcc)  # (num_segments, n_mfcc)
     
 
     # calculate fft for each resampled waveform
     if verbose:
         print('Calculating STFT...')
-    stft = []
-    for i in range(len(resampled_wave_matrix)):
-        # hanning window the waveform
-        x = resampled_wave_matrix[i]
-        y = x * np.hanning(x.shape[0])
-        stft.append(np.abs(np.fft.rfft(y, n=n_fft)))
-    stft = torch.tensor(stft, dtype=torch.float32)
-    stft = torch.log1p(stft)  # log(1 + magnitude): compresses dynamic range, matches perceptual loudness
+    stft = extract_stft_batch(resampled_wave_matrix, n_fft)  # (num_segments, n_fft//2 + 1)
+
 
     if normalize_mfcc:
         # normalize the mfcc
@@ -156,7 +200,7 @@ def getFeatures(waveform_array: torch.Tensor,
 
 
     if pitch_log_scale:
-        pitch = pitch_lin_to_log_scale(pitch, f_low, pitch_log_eps)
+        pitch = pitch_lin_to_log_scale(pitch, f_low)
 
     pitch = pitch.unsqueeze(1)
 
@@ -170,5 +214,11 @@ def getFeatures(waveform_array: torch.Tensor,
     if verbose:
         print(f'Saving features (based on this parameterization (of this audio dataset)) to disk at {resulting_data_fn}')
     save_tensors_to_pt(stft, mfcc, pitch, resulting_data_fn)
+
+
+    midi_fn = getMidiNameFromFeaturesFile(resulting_data_fn)
+    print('Writing feature data to MIDI...')
+    write_data_to_midi(torch.cat((mfcc, pitch), dim=1), f_low, include_voicedness, hop_size, midi_fn)
+
         
     return stft, mfcc, pitch
